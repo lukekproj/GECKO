@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.kinarm
+*.mat
+*.npz
+output/
+*.egg-info/
+.vscode/
