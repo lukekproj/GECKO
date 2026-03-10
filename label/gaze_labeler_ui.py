@@ -44,6 +44,8 @@ matplotlib.use(MPL_BACKEND)
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, RadioButtons
 import numpy as np
+from tkinter import messagebox
+import tkinter as tk
 
 
 # -----------------------------------------------------------------------------
@@ -82,7 +84,7 @@ class GazeLabeler:
         Flag indicating trial is marked as unusable (exports as code 9).
     """
     
-    def __init__(self, trial_name, gaze_x, gaze_y, xT, yT, trial_info=None, marker_frames=None, label_order=None):
+    def __init__(self, trial_name, gaze_x, gaze_y, overlay_channels=None, trial_info=None, marker_frames=None, label_order=None):
         """
         Initialize the labeling tool with trial data.
         
@@ -119,8 +121,9 @@ class GazeLabeler:
         self.marker_frames = marker_frames if marker_frames is not None else {}
         
         # Optimize data display for better performance
-        self.gaze_x, self.gaze_y, self.xT, self.yT = self.optimize_plot_data(
-            gaze_x, gaze_y, xT, yT
+        self.overlay_channels = overlay_channels if overlay_channels is not None else {}
+        self.gaze_x, self.gaze_y, self.overlay_channels = self.optimize_plot_data(
+            gaze_x, gaze_y, self.overlay_channels
         )
 
         # Initialize storage for labeled eye movement events
@@ -137,7 +140,7 @@ class GazeLabeler:
     # Data Optimization
     # -------------------------------------------------------------------------
 
-    def optimize_plot_data(self, gaze_x, gaze_y, xT, yT, max_points=5000):
+    def optimize_plot_data(self, gaze_x, gaze_y, overlay_channels, max_points=5000):
         """
         Reduce data density for faster, more responsive plotting.
         
@@ -174,7 +177,7 @@ class GazeLabeler:
         """
         # Skip optimization if data is already small enough
         if len(gaze_x) <= max_points:
-            return gaze_x, gaze_y, xT, yT
+            return gaze_x, gaze_y, overlay_channels
         
         # Calculate step size for uniform sampling
         step = max(1, len(gaze_x) // max_points)
@@ -199,9 +202,8 @@ class GazeLabeler:
         # Remove duplicates and sort
         idx = sorted(set(idx))
         
-        # Return downsampled arrays
-        return (np.array(gaze_x)[idx], np.array(gaze_y)[idx],
-                np.array(xT)[idx], np.array(yT)[idx])
+        optimized_overlays = {k: np.array(v)[idx] for k, v in overlay_channels.items()}
+        return (np.array(gaze_x)[idx], np.array(gaze_y)[idx], optimized_overlays)
 
     # -------------------------------------------------------------------------
     # Range Manipulation
@@ -530,8 +532,9 @@ class GazeLabeler:
         # Plot gaze and target data, * 100 to convert from m to cm.
         ax.plot(self.gaze_x * 100, label='Gaze X')
         ax.plot(self.gaze_y * 100, label='Gaze Y')
-        ax.plot(self.xT * 100, label='Target X', linestyle='--')
-        ax.plot(self.yT * 100, label='Target Y', linestyle='--')
+        overlay_styles = ['--', '-.', ':', '--', '-.', ':']
+        for i, (name, data) in enumerate(self.overlay_channels.items()):
+            ax.plot(data * 100, label=name, linestyle=overlay_styles[i % len(overlay_styles)])
         
         # Draw any user-selected marker events with unique colors
         marker_colors = ['purple', 'orange', 'cyan', 'magenta', 'lime', 'pink', 'brown', 'gray']
@@ -921,8 +924,9 @@ class GazeLabeler:
         # Plot original gaze and target data, * 100 to convert from m to cm
         ax.plot(self.gaze_x * 100, label='Gaze X')
         ax.plot(self.gaze_y * 100, label='Gaze Y')
-        ax.plot(self.xT * 100, label='Target X', linestyle='--')
-        ax.plot(self.yT, label='Target Y', linestyle='--')
+        overlay_styles = ['--', '-.', ':', '--', '-.', ':']
+        for i, (name, data) in enumerate(self.overlay_channels.items()):
+            ax.plot(data * 100, label=name, linestyle=overlay_styles[i % len(overlay_styles)])
         
         # Draw any user-selected marker events with unique colors
         marker_colors = ['purple', 'orange', 'cyan', 'magenta', 'lime', 'pink', 'brown', 'gray']
@@ -1005,8 +1009,16 @@ class GazeLabeler:
             plt.close(fig)
         
         def on_restart(event):
-            choice["method"] = "restart_all"
-            plt.close(fig)
+            confirm_root = tk.Tk()
+            confirm_root.withdraw()
+            confirm_root.attributes("-topmost", True)
+            result = messagebox.askyesno("Confirm Restart", "Are you sure you want to restart? All labels will be cleared.", parent=confirm_root)
+            confirm_root.destroy()
+            if result:
+                choice["method"] = "restart_all"
+                plt.close(fig)
+            else:
+                fig.canvas.manager.window.activateWindow()
         
         def on_next_trial(event):
             choice["method"] = "next_trial"

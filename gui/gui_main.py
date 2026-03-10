@@ -20,7 +20,7 @@ from tkinter import filedialog, messagebox
 from data.data_loader import KinarmDataExplorer
 from gui.gui_help import HelpWindow
 from gui.gui_session import SessionManager
-from utility.user_prefs import get_label_order, set_label_order, get_export_defaults, get_marker_defaults, set_marker_defaults, get_save_location, set_save_location
+from utility.user_prefs import get_label_order, set_label_order, get_export_defaults, get_marker_defaults, set_marker_defaults, get_save_location, set_save_location, MAX_LABELER_CHANNELS, get_labeler_channel_defaults, set_labeler_channel_defaults
 import numpy as np
 import pandas as pd
 import traceback
@@ -177,20 +177,12 @@ class KinarmDataExplorerGUI:
         self.root.title("Data Explorer GUI")
         self.root.withdraw()  # Hide window initially
         self.root.geometry("1200x900")
+        
+        try:
+            self.root.state('zoomed')       # Windows/macOS
+        except tk.TclError:
+            self.root.attributes('-zoomed', True)  # Linux
 
-        # Center window on screen
-        self.root.update_idletasks()
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
-        window_width = 1200
-        window_height = 900
-
-        x = (screen_width // 2) - (window_width // 2)
-        y = (screen_height // 2) - (window_height // 2)
-        x = max(0, x)
-        y = max(0, y)
-
-        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
         self.root.deiconify() # Show window after centering
 
         # Core application state
@@ -1252,6 +1244,12 @@ class KinarmDataExplorerGUI:
             messagebox.showinfo("Label Order Reset", "Label order preference cleared. Next labeling will prompt again.")
             win.destroy()
 
+        def clear_labeler_channels():
+            set_labeler_channel_defaults([])
+            messagebox.showinfo("Labeler Channels Reset", 
+                "Labeler channel selection cleared. Next labeling will default to xT and yT.")
+            win.destroy()
+
         def clear_session_state():
             if self.session.delete_state():
                 messagebox.showinfo("Session State Cleared", "session_state.json deleted for this file.")
@@ -1262,12 +1260,14 @@ class KinarmDataExplorerGUI:
         btn1 = tk.Button(body, text="Clear Interpolation Cache", command=clear_interpolation, width=35)
         btn2 = tk.Button(body, text="Reset Label Order Preference", command=reset_label_order, width=35)
         btn3 = tk.Button(body, text="Clear Session Resume State", command=clear_session_state, width=35)
-        btn4 = tk.Button(body, text="Close", command=win.destroy, width=35)
+        btn4 = tk.Button(body, text="Clear Labeler Channel Selection", command=clear_labeler_channels).pack(fill=tk.X, pady=2)
+        btn5 = tk.Button(body, text="Close", command=win.destroy, width=35)
 
         btn1.pack(pady=4)
         btn2.pack(pady=4)
         btn3.pack(pady=4)
-        btn4.pack(pady=(10, 0))
+        btn4.pack(pady=4)
+        btn5.pack(pady=(10, 0))
 
         win.update_idletasks()
         center_window(win, width=max(420, win.winfo_reqwidth()+20), height=win.winfo_reqheight()+20)
@@ -1402,6 +1402,90 @@ class KinarmDataExplorerGUI:
         if self.explorer:
             self.explorer.calculate_fvr()
 
+    def _pick_labeler_channels(self):
+        """
+        Open a dialog for the user to select which channels to display
+        in the gaze labeler. Gaze_X and Gaze_Y are required and locked.
+        Returns a list of channel names or None if cancelled.
+        """
+        trial = self.current_trial
+        if not trial:
+            return None
+
+        available = [ch for ch in trial.kinematics.keys()
+                     if ch not in ("Gaze_X", "Gaze_Y")]
+
+        result = {"channels": None}
+
+        win = tk.Toplevel(self.root)
+        win.title("Select Labeler Channels")
+        win.resizable(False, True)
+        win.grab_set()
+
+        tk.Label(win, text="Gaze_X and Gaze_Y are always included.",
+                 font=self.bold_font).pack(padx=12, pady=(12, 4))
+        tk.Label(win, text=f"Select up to {MAX_LABELER_CHANNELS - 2} additional channels to overlay:",
+                 ).pack(padx=12, pady=(0, 8))
+
+        frame = tk.Frame(win)
+        frame.pack(padx=12, pady=(0, 8), fill=tk.BOTH, expand=True)
+
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        listbox = tk.Listbox(frame, selectmode=tk.MULTIPLE, width=40, height=15,
+                             yscrollcommand=scrollbar.set)
+        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=listbox.yview)
+
+        for ch in available:
+            listbox.insert(tk.END, ch)
+
+        saved = get_labeler_channel_defaults()
+        defaults = saved if saved else ["xT", "yT"]
+        for i in range(listbox.size()):
+            if listbox.get(i) in defaults:
+                listbox.selection_set(i)
+
+        count_label = tk.Label(win, text="")
+        count_label.pack(padx=12)
+
+        max_extra = MAX_LABELER_CHANNELS - 2
+
+        def update_count(event=None):
+            n = len(listbox.curselection())
+            count_label.config(text=f"{n}/{max_extra} additional channels selected")
+            if n > max_extra:
+                count_label.config(fg="red")
+            else:
+                count_label.config(fg="black")
+
+        listbox.bind("<<ListboxSelect>>", update_count)
+        update_count()
+
+        btn_frame = tk.Frame(win)
+        btn_frame.pack(padx=12, pady=(4, 12))
+
+        def on_ok():
+            selected = [listbox.get(i) for i in listbox.curselection()]
+            if len(selected) > max_extra:
+                messagebox.showwarning("Too Many Channels",
+                    f"Please select at most {max_extra} additional channels.",
+                    parent=win)
+                return
+            set_labeler_channel_defaults(selected)
+            result["channels"] = ["Gaze_X", "Gaze_Y"] + selected
+            win.destroy()
+
+        def on_cancel():
+            win.destroy()
+
+        tk.Button(btn_frame, text="OK", width=10, command=on_ok).pack(side=tk.LEFT, padx=4)
+        tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side=tk.LEFT, padx=4)
+
+        self.root.wait_window(win)
+        return result["channels"]
+
     def label_gaze(self):
         """
         Launch the interactive gaze labeling tool with multi-trial support.
@@ -1417,17 +1501,28 @@ class KinarmDataExplorerGUI:
                 messagebox.showwarning("No Trial", "Please select a trial first.")
                 return
             
+            # Prompt user to pick labeler channels (only on first iteration)
+            saved = get_labeler_channel_defaults()
+            if saved:
+                # Validate saved channels still exist in this trial
+                valid = [ch for ch in saved if ch in trial.kinematics]
+                labeler_channels = ["Gaze_X", "Gaze_Y"] + valid
+            else:
+                labeler_channels = self._pick_labeler_channels()
+                if labeler_channels is None:
+                    return
+            
             # Start labeling loop - can continue through multiple trials
             while trial is not None:
                 # Get interpolated gaze data for labeling
-                interpolated_data = self.explorer.get_interpolated_gaze_data()
+                interpolated_data = self.explorer.get_interpolated_gaze_data(labeler_channels)
                 if interpolated_data is None:
                     return
 
                 gaze_x = interpolated_data["Gaze_X"] 
                 gaze_y = interpolated_data["Gaze_Y"]
-                xT = interpolated_data["xT"]
-                yT = interpolated_data["yT"]
+                overlay_channels = {k: v for k, v in interpolated_data.items()
+                                    if k not in ("Gaze_X", "Gaze_Y")}
 
                 # If UI failed to reselect properly, fall back to sticky selection
                 # Get all selections from UI
@@ -1488,9 +1583,10 @@ class KinarmDataExplorerGUI:
                 action, labeler = run_labeling_process(
                     self.explorer,
                     trial.name,
-                    gaze_x, gaze_y, xT, yT,
+                    gaze_x, gaze_y,
+                    overlay_channels,
                     selected_export_channels,
-                    kinarm_path=self.explorer.filepath,   # use keyword to avoid positional mistakes
+                    kinarm_path=self.explorer.filepath,
                     trial_info=trial_info,
                     output_root=self.custom_save_location,
                     trial_index=trial_index,

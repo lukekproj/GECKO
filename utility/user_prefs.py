@@ -51,10 +51,6 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 
-# -----------------------------------------------------------------------------
-# Configuration
-# -----------------------------------------------------------------------------
-
 # Matplotlib backend for all GUI plotting.
 # Requires PyQt5. Change to "TkAgg" if PyQt5 is unavailable.
 MPL_BACKEND = "Qt5Agg"
@@ -65,6 +61,47 @@ APP_DIR_NAME = "KinarmDataExplorer"
 # Preferences file name (JSON format for readability)
 PREFS_FILE_NAME = "user_prefs.json"
 
+# =============================================================================
+# Lab-Configurable Processing Parameters
+# =============================================================================
+# These parameters control all signal processing in the application.
+# Labs should adjust these to match their KINARM setup and analysis pipeline.
+
+# --- Sentinel Value Cleaning ---
+KINARM_INVALID_ABS_THRESHOLD = 99.9     # |value| >= this treated as invalid (NaN)
+
+# --- Gaze Low-Pass Filter ---
+# Applied to Gaze_X/Gaze_Y before all gaze metric calculations.
+# Uses a Butterworth filter with filtfilt (zero-phase, forward-backward pass).
+# The effective order is double what's specified here due to filtfilt.
+GAZE_LOWPASS_CUTOFF_HZ = 20            # Cutoff frequency (Hz)
+GAZE_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
+
+# --- Savitzky-Golay Filter (Angular Velocity Derivatives) ---
+# Used to compute time derivatives of eye-centered Cartesian coordinates
+# for angular velocity calculation (Equations 4a, 4b from Singh et al.).
+SAVGOL_WINDOW = 11                      # Window length in frames (must be odd)
+SAVGOL_POLYORDER = 3                    # Polynomial order
+
+# --- Hand Kinematic Derived Channel Filter ---
+# Applied to velocity and acceleration channels computed from hand position.
+# Uses the same Butterworth + filtfilt approach as the gaze filter.
+HAND_LOWPASS_CUTOFF_HZ = 10            # Cutoff frequency (Hz)
+HAND_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
+
+# --- Gaze Geometry ---
+DEFAULT_EYE_HEIGHT_M = 0.2             # Eye height above stimulus plane (meters)
+DEFAULT_VISUAL_ANGLE_DEG = 5.0          # Foveal cone angle (degrees), δ in Equation 9
+
+# --- Interpolation ---
+AUTO_INTERP_THRESHOLD_FRAMES = 50       # Gaps <= this are auto-filled with linear interp
+
+# --- Saccadic Interpolation (preview only) ---
+SACCADIC_TRANSITION_FRACTION = 0.2      # Fraction of gap used for sigmoid blend
+SACCADIC_SIGMOID_STEEPNESS = 10.0       # Higher = sharper transition
+
+# Maximum number of channels displayed in the gaze labeler (including Gaze_X, Gaze_Y).
+MAX_LABELER_CHANNELS = 6
 
 # -----------------------------------------------------------------------------
 # Path Management
@@ -364,6 +401,25 @@ def set_marker_defaults(selected: List[str]) -> None:
     """
     prefs = load_prefs()
     prefs["marker_defaults"] = list(selected)
+    save_prefs(prefs)
+
+def get_labeler_channel_defaults() -> List[str]:
+    """
+    Get the list of extra overlay channels to pre-select in the labeler picker.
+    Gaze_X and Gaze_Y are always included and not stored here.
+    """
+    prefs = load_prefs()
+    return list(prefs.get("labeler_channel_defaults", []))
+
+
+def set_labeler_channel_defaults(selected: List[str]) -> None:
+    """
+    Save the labeler overlay channel selection for future sessions.
+    """
+    prefs = load_prefs()
+    # Only store the extras, never Gaze_X/Gaze_Y
+    extras = [ch for ch in selected if ch not in ("Gaze_X", "Gaze_Y")]
+    prefs["labeler_channel_defaults"] = extras
     save_prefs(prefs)
 
 def get_save_location() -> str | None:

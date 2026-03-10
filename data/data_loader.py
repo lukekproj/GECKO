@@ -30,6 +30,7 @@ from data.data_calculations import (
     calculate_fvr,
     GazeCalculator,
 )
+from utility.user_prefs import HAND_LOWPASS_CUTOFF_HZ, HAND_LOWPASS_ORDER
 
 class KinarmDataExplorer:
     """
@@ -217,7 +218,7 @@ class KinarmDataExplorer:
 
         return kin_chans + derived_chans
 
-    def get_interpolated_gaze_data(self) -> Optional[Dict[str, np.ndarray]]:
+    def get_interpolated_gaze_data(self, channels=None) -> Optional[Dict[str, np.ndarray]]:
         """
         Get core gaze + target channels with smart interpolation applied.
 
@@ -236,7 +237,7 @@ class KinarmDataExplorer:
         if not self.current_trial:
             return None
 
-        gaze_channels = ["Gaze_X", "Gaze_Y", "xT", "yT"]
+        gaze_channels = channels if channels is not None else ["Gaze_X", "Gaze_Y", "xT", "yT"]
 
         missing = [ch for ch in gaze_channels if ch not in self.current_trial.kinematics]
         if missing:
@@ -348,7 +349,7 @@ class KinarmDataExplorer:
             keeping the derived channel definitions clean.
             """
             raw = np.gradient(signal, dt)
-            return self.lowpass_filter(raw, cutoff=10, fs=fs)
+            return self.lowpass_filter(raw, cutoff=HAND_LOWPASS_CUTOFF_HZ, fs=fs, order=HAND_LOWPASS_ORDER)
 
         def magnitude(x: np.ndarray, y: np.ndarray) -> np.ndarray:
             """2D Euclidean vector magnitude."""

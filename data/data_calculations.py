@@ -32,12 +32,15 @@ from scipy.signal import savgol_filter
 # -----------------------------
 # Default parameters / constants
 # -----------------------------
+# All values imported from user_prefs.py for lab-level configurability.
 
-DEFAULT_EYE_HEIGHT_M = 0.2          # H (meters). Professor confirmed 0.2 m.
-DEFAULT_VISUAL_ANGLE_DEG = 5.0      # Foveal cone angle.
-DEFAULT_SAVGOL_WINDOW = 11          # Must be odd.
-DEFAULT_SAVGOL_POLYORDER = 3
-DEFAULT_GAZE_LOWPASS_CUTOFF_HZ = 20
+from utility.user_prefs import (
+    DEFAULT_EYE_HEIGHT_M,
+    DEFAULT_VISUAL_ANGLE_DEG,
+    SAVGOL_WINDOW as DEFAULT_SAVGOL_WINDOW,
+    SAVGOL_POLYORDER as DEFAULT_SAVGOL_POLYORDER,
+    GAZE_LOWPASS_CUTOFF_HZ as DEFAULT_GAZE_LOWPASS_CUTOFF_HZ,
+)
 
 
 class GazeCalculator:

@@ -233,6 +233,10 @@ def compute_metrics_for_export(
         gx = _fill_nans_linear(clean_kinarm_signal(gaze_x))
         gy = _fill_nans_linear(clean_kinarm_signal(gaze_y))
 
+        # Apply same 20 Hz low-pass filter used in GUI calculations
+        gx = explorer.lowpass_filter(gx, cutoff=20, fs=frame_rate)
+        gy = explorer.lowpass_filter(gy, cutoff=20, fs=frame_rate)
+
         calc = explorer.gaze_calculator
 
         # Step 1: Compute spherical coordinates (rho, theta, phi)
@@ -547,8 +551,7 @@ def run_labeling_process(
     trial_name: str,
     gaze_x,
     gaze_y,
-    xT,
-    yT,
+    overlay_channels: Dict[str, np.ndarray],
     selected_export_channels: List[str],
     kinarm_path: str | None = None,
     trial_info: str | None = None,
@@ -637,8 +640,8 @@ def run_labeling_process(
         # Clean raw inputs (convert KINARM sentinel values to NaN)
         gaze_x = clean_kinarm_signal(gaze_x)
         gaze_y = clean_kinarm_signal(gaze_y)
-        xT = clean_kinarm_signal(xT)
-        yT = clean_kinarm_signal(yT)
+        for k in overlay_channels:
+            overlay_channels[k] = clean_kinarm_signal(overlay_channels[k])
 
         # Extract repeat count from trial name (e.g., "TP1_2" → count=2)
         try:
@@ -712,8 +715,7 @@ def run_labeling_process(
             trial_name,
             gaze_x,
             gaze_y,
-            xT,
-            yT,
+            overlay_channels=overlay_channels,
             trial_info=trial_info,
             marker_frames=marker_frames,
             label_order=label_order,

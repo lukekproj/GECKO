@@ -24,8 +24,8 @@ from scipy.ndimage import label
 # Data helpers
 # -----------------------------
 
-KINARM_INVALID_ABS_THRESHOLD = 99.9  # values with abs(x) >= 99.9 are treated as missing (NaN)
-
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD  # values with abs(x) >= 99.9 are treated as missing (NaN)
+from utility.user_prefs import SACCADIC_TRANSITION_FRACTION, SACCADIC_SIGMOID_STEEPNESS
 
 @dataclass(frozen=True)
 class Gap:
@@ -193,7 +193,7 @@ def saccadic_interpolate_gap(data: np.ndarray, gap_indices: np.ndarray) -> np.nd
 
     if before_idx >= 0 and after_idx < len(data_copy):
         gap_length = int(gap_indices.size)
-        transition_length = max(1, int(gap_length * 0.2))
+        transition_length = max(1, int(gap_length * SACCADIC_TRANSITION_FRACTION))
 
         start_val = float(data_copy[before_idx])
         end_val = float(data_copy[after_idx])
@@ -201,7 +201,7 @@ def saccadic_interpolate_gap(data: np.ndarray, gap_indices: np.ndarray) -> np.nd
         for i, idx in enumerate(gap_indices):
             if i < transition_length:
                 progress = i / transition_length
-                sigmoid = 1.0 / (1.0 + np.exp(-10.0 * (progress - 0.5)))
+                sigmoid = 1.0 / (1.0 + np.exp(-SACCADIC_SIGMOID_STEEPNESS * (progress - 0.5)))
                 data_copy[idx] = start_val + (end_val - start_val) * sigmoid
             else:
                 data_copy[idx] = end_val
@@ -316,6 +316,8 @@ def _choose_large_gap_strategy(
     original: np.ndarray,
     base: np.ndarray,
     large_gaps: list[Gap],
+    gap_index: int = 1,
+    gap_total: int = 1,
 ) -> Optional[str]:
     """
     Show preview plots for large gaps and return the user's chosen strategy.
@@ -332,7 +334,8 @@ def _choose_large_gap_strategy(
     fig.canvas.manager.window.showMaximized()
     plt.subplots_adjust(bottom=0.15, hspace=0.3)
 
-    title_text = f"{name} - Original Data with {len(large_gaps)} Large Gaps"
+    gap = large_gaps[0]
+    title_text = f"{name} - Gap {gap_index} of {gap_total}: frames {gap.start}-{gap.end} ({gap.length} frames)"
     if trial_info:
         title_text = f"{trial_info}  •  {title_text}"
     ax1.set_title(title_text, fontsize=12, fontweight="bold")
@@ -373,11 +376,7 @@ def _choose_large_gap_strategy(
     ax3.legend()
     _overlay_target_xt_yt(ax3, explorer)
 
-    gap_text = "Large Gaps Found:\n" + "\n".join(
-        [f"• Gap {g.gap_id}: frames {g.start}-{g.end} ({g.length} frames)" for g in large_gaps[:5]]
-    )
-    if len(large_gaps) > 5:
-        gap_text += f"\n• ... and {len(large_gaps) - 5} more"
+    gap_text = f"Gap {gap_index} of {gap_total}\nFrames {gap.start}-{gap.end} ({gap.length} frames)"
     fig.text(
         0.02,
         0.98,
@@ -491,7 +490,7 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
     for ch in channel_names:
         key = (trial_name, ch)
         if not force_prompt and key in explorer.interpolation_cache:
-            print(f"\n✓ Using cached interpolation for {ch}")
+            print(f"\nDEBUGGING: Using cached interpolation for {ch}")
             interpolated_channels[ch] = explorer.interpolation_cache[key]
         else:
             channels_needing_processing.append(ch)
@@ -520,14 +519,14 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
             upsampled = upsample_timestamps(data)
             interpolated_channels[channel_name] = upsampled
             explorer.interpolation_cache[(trial_name, channel_name)] = upsampled
-            print(f"  → Cached {channel_name} for future use")
+            print(f"DEBUGGING: Cached {channel_name} for future use")
             continue
 
         gaps = _find_nan_gaps(data)
         if not gaps:
             interpolated_channels[channel_name] = data
             explorer.interpolation_cache[(trial_name, channel_name)] = data
-            print(f"  → Cached {channel_name} for future use")
+            print(f"DEBUGGING: Cached {channel_name} for future use")
             continue
 
         small = [g for g in gaps if g.length <= auto_threshold]
@@ -536,29 +535,30 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
         interpolated = data.copy()
 
         if small:
-            print(f"\n{channel_name}: Auto-interpolating {len(small)} small gaps (≤{auto_threshold} frames):")
+            print(f"\n{channel_name}:DEBUGGING: Auto-interpolating {len(small)} small gaps (≤{auto_threshold} frames):")
             for g in small:
-                print(f"  Gap {g.gap_id}: frames {g.start}-{g.end} ({g.length} frames)")
+                print(f"DEBUGGING: Gap {g.gap_id}: frames {g.start}-{g.end} ({g.length} frames)")
                 interpolated = _linear_interpolate_gap(interpolated, g.indices)
 
         if large:
-            action = _choose_large_gap_strategy(explorer, channel_name, trial_info, data, interpolated, large)
-            if action is None:
-                return None
-            if action == "linear":
-                for g in large:
-                    interpolated = _linear_interpolate_gap(interpolated, g.indices)
-                print(f"  → Applied LINEAR interpolation to {len(large)} large gaps")
-            elif action == "saccadic":
-                for g in large:
-                    interpolated = saccadic_interpolate_gap(interpolated, g.indices)
-                print(f"  → Applied SACCADIC interpolation to {len(large)} large gaps")
-            else:
-                print(f"  → Left {len(large)} large gaps as NaN")
+            for gap_idx, g in enumerate(large, start=1):
+                action = _choose_large_gap_strategy(explorer, channel_name, trial_info, data, interpolated, [g], gap_index=gap_idx, gap_total=len(large))
+                if action is None:
+                    return None
+                if action == "linear":
+                    for g in large:
+                        interpolated = _linear_interpolate_gap(interpolated, g.indices)
+                    print(f"DEBUGGING: Applied LINEAR interpolation to {len(large)} large gaps")
+                elif action == "saccadic":
+                    for g in large:
+                        interpolated = saccadic_interpolate_gap(interpolated, g.indices)
+                    print(f"DEBUGGING: Applied SACCADIC interpolation to {len(large)} large gaps")
+                else:
+                    print(f"DEBUGGING: Left {len(large)} large gaps as NaN")
 
         interpolated_channels[channel_name] = interpolated
         explorer.interpolation_cache[(trial_name, channel_name)] = interpolated
-        print(f"  → Cached {channel_name} for future use")
+        print(f"DEBUGGING: Cached {channel_name} for future use")
 
-    print("\n✓ Interpolation complete!")
+    print("\nDEBUGGING: Interpolation complete!")
     return interpolated_channels
