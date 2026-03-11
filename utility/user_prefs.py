@@ -74,20 +74,21 @@ KINARM_INVALID_ABS_THRESHOLD = 99.9     # |value| >= this treated as invalid (Na
 # Applied to Gaze_X/Gaze_Y before all gaze metric calculations.
 # Uses a Butterworth filter with filtfilt (zero-phase, forward-backward pass).
 # The effective order is double what's specified here due to filtfilt.
-GAZE_LOWPASS_CUTOFF_HZ = 20            # Cutoff frequency (Hz)
-GAZE_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
-
-# --- Savitzky-Golay Filter (Angular Velocity Derivatives) ---
-# Used to compute time derivatives of eye-centered Cartesian coordinates
-# for angular velocity calculation (Equations 4a, 4b from Singh et al.).
-SAVGOL_WINDOW = 11                      # Window length in frames (must be odd)
-SAVGOL_POLYORDER = 3                    # Polynomial order
+DEFAULT_GAZE_LOWPASS_CUTOFF_HZ = 20            # Cutoff frequency (Hz)
+DEFAULT_GAZE_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
 
 # --- Hand Kinematic Derived Channel Filter ---
 # Applied to velocity and acceleration channels computed from hand position.
 # Uses the same Butterworth + filtfilt approach as the gaze filter.
-HAND_LOWPASS_CUTOFF_HZ = 10            # Cutoff frequency (Hz)
+HAND_LOWPASS_CUTOFF_HZ = 20           # Cutoff frequency (Hz)
+HAND_LOWPASS_SAMPLING_HZ = 1000        # Sampling Frequency (Hz)
 HAND_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
+
+# --- Savitzky-Golay Filter (Angular Velocity Derivatives) ---
+# Used to compute time derivatives of eye-centered Cartesian coordinates
+# for angular velocity calculation (Equations 4a, 4b from Singh et al.).
+DEFAULT_SAVGOL_WINDOW = 11                      # Window length in frames (must be odd)
+DEFAULT_SAVGOL_POLYORDER = 3                    # Polynomial order
 
 # --- Gaze Geometry ---
 DEFAULT_EYE_HEIGHT_M = 0.2             # Eye height above stimulus plane (meters)
@@ -102,6 +103,8 @@ SACCADIC_SIGMOID_STEEPNESS = 10.0       # Higher = sharper transition
 
 # Maximum number of channels displayed in the gaze labeler (including Gaze_X, Gaze_Y).
 MAX_LABELER_CHANNELS = 6
+
+DEFAULT_TIMESTAMP_SPACING_S = 0.001  # 1ms default for typical KINARM data
 
 # -----------------------------------------------------------------------------
 # Path Management
@@ -485,13 +488,11 @@ def get_label_order():
         if not order:
             return None
         # validate
-        labels = ["fixation", "pursuit", "saccade"]
-        if sorted(order) != sorted(labels):
+        if sorted(order) != sorted(_DEFAULT_LABEL_ORDER):
             return None
         return list(order)
     except Exception:
         return None
-
 
 def set_label_order(order):
     try:
@@ -504,12 +505,6 @@ def set_label_order(order):
     except Exception:
         pass
 
-
 def clear_label_order():
     """Remove stored label order preference (next labeling will prompt again)."""
-    try:
-        prefs = load_prefs()   # whatever your internal loader is
-        prefs.pop("label_order", None)
-        save_prefs(prefs)      # whatever your internal saver is
-    except Exception:
-        pass
+    set_label_order(None)

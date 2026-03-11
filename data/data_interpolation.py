@@ -14,18 +14,17 @@ Key features:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 from scipy.ndimage import label
 
-
-# -----------------------------
-# Data helpers
-# -----------------------------
-
-from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD  # values with abs(x) >= 99.9 are treated as missing (NaN)
-from utility.user_prefs import SACCADIC_TRANSITION_FRACTION, SACCADIC_SIGMOID_STEEPNESS
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD
+from utility.user_prefs import (
+    SACCADIC_TRANSITION_FRACTION, 
+    SACCADIC_SIGMOID_STEEPNESS,
+    DEFAULT_TIMESTAMP_SPACING_S
+)
 
 @dataclass(frozen=True)
 class Gap:
@@ -35,7 +34,6 @@ class Gap:
     end: int
     length: int
     indices: np.ndarray
-
 
 def _sanitize_kinarm_signal(values: np.ndarray) -> np.ndarray:
     """
@@ -76,7 +74,6 @@ def _should_sanitize_channel(channel_name: str) -> bool:
         return False
     
     return True
-
 
 def _find_nan_gaps(data: np.ndarray) -> list[Gap]:
     """
@@ -271,7 +268,7 @@ def upsample_timestamps(timestamps: np.ndarray) -> np.ndarray:
                 spacing = (current_val - ts[0]) / i / 2.0
             else:
                 # Only one group in entire array
-                spacing = 0.001  # Default to 1ms for typical KINARM data
+                spacing = DEFAULT_TIMESTAMP_SPACING_S
 
         for j in range(count):
             upsampled.append(float(current_val + j * spacing))
@@ -279,11 +276,6 @@ def upsample_timestamps(timestamps: np.ndarray) -> np.ndarray:
         i += count
 
     return np.asarray(upsampled, dtype=float)
-
-
-# -----------------------------
-# UI helpers (matplotlib)
-# -----------------------------
 
 def _overlay_target_xt_yt(ax, explorer) -> None:
     """
@@ -447,11 +439,6 @@ def _choose_large_gap_strategy(
         return None
     return user_decision["action"]
 
-
-# -----------------------------
-# Public API
-# -----------------------------
-
 def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 50, force_prompt: bool = False, trial_info: Optional[str] = None):
     """
     Interpolate missing samples for multiple channels in the current trial.
@@ -479,18 +466,13 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
         return None
 
     trial_name = explorer.current_trial.name
-
-    # Session cache: (trial_name, channel_name) -> interpolated ndarray
-    if not hasattr(explorer, "interpolation_cache"):
-        explorer.interpolation_cache = {}
-
+    
     interpolated_channels: Dict[str, np.ndarray] = {}
     channels_needing_processing: list[str] = []
 
     for ch in channel_names:
         key = (trial_name, ch)
         if not force_prompt and key in explorer.interpolation_cache:
-            print(f"\nDEBUGGING: Using cached interpolation for {ch}")
             interpolated_channels[ch] = explorer.interpolation_cache[key]
         else:
             channels_needing_processing.append(ch)
@@ -498,11 +480,8 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
     if not channels_needing_processing:
         return interpolated_channels
 
-    print(f"\n=== Smart Interpolation (auto ≤{auto_threshold} frames) ===")
-
     for channel_name in channels_needing_processing:
         if channel_name not in explorer.current_trial.kinematics:
-            print(f"Warning: Channel {channel_name} not found, skipping")
             continue
 
         raw = explorer.current_trial.kinematics[channel_name].values
@@ -515,18 +494,15 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
 
         # Special handling: timestamps are upsampled (not interpolated like signals)
         if channel_name == "Gaze_TimeStamp":
-            print(f"\n{channel_name}: Upsampling timestamps")
             upsampled = upsample_timestamps(data)
             interpolated_channels[channel_name] = upsampled
             explorer.interpolation_cache[(trial_name, channel_name)] = upsampled
-            print(f"DEBUGGING: Cached {channel_name} for future use")
             continue
 
         gaps = _find_nan_gaps(data)
         if not gaps:
             interpolated_channels[channel_name] = data
             explorer.interpolation_cache[(trial_name, channel_name)] = data
-            print(f"DEBUGGING: Cached {channel_name} for future use")
             continue
 
         small = [g for g in gaps if g.length <= auto_threshold]
@@ -535,30 +511,23 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
         interpolated = data.copy()
 
         if small:
-            print(f"\n{channel_name}:DEBUGGING: Auto-interpolating {len(small)} small gaps (≤{auto_threshold} frames):")
             for g in small:
-                print(f"DEBUGGING: Gap {g.gap_id}: frames {g.start}-{g.end} ({g.length} frames)")
                 interpolated = _linear_interpolate_gap(interpolated, g.indices)
 
         if large:
             for gap_idx, g in enumerate(large, start=1):
-                action = _choose_large_gap_strategy(explorer, channel_name, trial_info, data, interpolated, [g], gap_index=gap_idx, gap_total=len(large))
+                action = _choose_large_gap_strategy(
+                    explorer, channel_name, trial_info, data, interpolated,
+                    [g], gap_index=gap_idx, gap_total=len(large)
+                )
                 if action is None:
                     return None
                 if action == "linear":
-                    for g in large:
-                        interpolated = _linear_interpolate_gap(interpolated, g.indices)
-                    print(f"DEBUGGING: Applied LINEAR interpolation to {len(large)} large gaps")
+                    interpolated = _linear_interpolate_gap(interpolated, g.indices)
                 elif action == "saccadic":
-                    for g in large:
-                        interpolated = saccadic_interpolate_gap(interpolated, g.indices)
-                    print(f"DEBUGGING: Applied SACCADIC interpolation to {len(large)} large gaps")
-                else:
-                    print(f"DEBUGGING: Left {len(large)} large gaps as NaN")
+                    interpolated = saccadic_interpolate_gap(interpolated, g.indices)
+                # else: leave as NaN, do nothing
 
         interpolated_channels[channel_name] = interpolated
         explorer.interpolation_cache[(trial_name, channel_name)] = interpolated
-        print(f"DEBUGGING: Cached {channel_name} for future use")
-
-    print("\nDEBUGGING: Interpolation complete!")
     return interpolated_channels

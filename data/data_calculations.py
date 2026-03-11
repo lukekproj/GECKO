@@ -28,20 +28,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
-
-# -----------------------------
-# Default parameters / constants
-# -----------------------------
 # All values imported from user_prefs.py for lab-level configurability.
-
 from utility.user_prefs import (
     DEFAULT_EYE_HEIGHT_M,
     DEFAULT_VISUAL_ANGLE_DEG,
-    SAVGOL_WINDOW as DEFAULT_SAVGOL_WINDOW,
-    SAVGOL_POLYORDER as DEFAULT_SAVGOL_POLYORDER,
-    GAZE_LOWPASS_CUTOFF_HZ as DEFAULT_GAZE_LOWPASS_CUTOFF_HZ,
+    DEFAULT_SAVGOL_WINDOW,
+    DEFAULT_SAVGOL_POLYORDER,
+    DEFAULT_GAZE_LOWPASS_CUTOFF_HZ,
+    DEFAULT_GAZE_LOWPASS_ORDER
 )
-
 
 class GazeCalculator:
     """
@@ -155,7 +150,7 @@ class GazeCalculator:
         # Time derivatives of eye-centered Cartesian coordinates (Savitzky-Golay)
         x_dot = savgol_filter(x_eye, sg_window, sg_polyorder, deriv=1, delta=dt)
         y_dot = savgol_filter(y_eye, sg_window, sg_polyorder, deriv=1, delta=dt)
-        z_dot = savgol_filter(z_eye, sg_window, sg_polyorder, deriv=1, delta=dt)  # ~0, but kept for Eq. 4a
+        z_dot = np.zeros_like(x_eye)  # eye height is constant; derivative is zero
         rho_dot = savgol_filter(np.asarray(rho, dtype=float), sg_window, sg_polyorder, deriv=1, delta=dt)
 
         # Common terms
@@ -252,11 +247,6 @@ class GazeCalculator:
         epsilon_rad = np.arccos(np.clip(dot_products, -1.0, 1.0))
         return epsilon_rad
 
-
-# -----------------------------------------------------------------------------
-# GUI-facing helper functions (compute + plot for the currently selected trial)
-# -----------------------------------------------------------------------------
-
 def calculate_gaze_metrics(explorer) -> None:
     """
     Compute and plot rho/theta/phi for the selected trial.
@@ -279,18 +269,12 @@ def calculate_gaze_metrics(explorer) -> None:
         gy = np.asarray(interpolated_data["Gaze_Y"], dtype=float)
 
         # Optional smoothing before derivatives / angles
-        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
-        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
+        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
+        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
 
         rho, theta, phi = explorer.gaze_calculator.compute_spherical_coords(gx, gy)
 
-        print("\nGaze Metrics (rho, theta, phi):")
-        print(f"rho (m):    min={np.nanmin(rho):.6f}, max={np.nanmax(rho):.6f}, mean={np.nanmean(rho):.6f}")
-        print(f"theta (rad): min={np.nanmin(theta):.6f}, max={np.nanmax(theta):.6f}, mean={np.nanmean(theta):.6f}")
-        print(f"phi (rad):   min={np.nanmin(phi):.6f}, max={np.nanmax(phi):.6f}, mean={np.nanmean(phi):.6f}")
-
         plt.figure(figsize=(12, 6))
-
         plt.subplot(3, 1, 1)
         plt.plot(rho, label="rho (m)")
         plt.legend()
@@ -335,19 +319,13 @@ def calculate_angular_velocity(explorer) -> None:
         gx = np.asarray(interpolated_data["Gaze_X"], dtype=float)
         gy = np.asarray(interpolated_data["Gaze_Y"], dtype=float)
 
-        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
-        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
+        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
+        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
 
         rho, theta, phi = explorer.gaze_calculator.compute_spherical_coords(gx, gy)
         v_deg_s, phi_dot, theta_dot, rho_dot = explorer.gaze_calculator.compute_angular_velocity(
             gx, gy, rho, phi, frame_rate_hz=frame_rate
         )
-
-        print("\nAngular Velocity Stats:")
-        print(f"v (deg/s):     min={np.nanmin(v_deg_s):.3f}, max={np.nanmax(v_deg_s):.3f}, mean={np.nanmean(v_deg_s):.3f}")
-        print(f"phi_dot (rad/s):   mean={np.nanmean(phi_dot):.3f}")
-        print(f"theta_dot (rad/s): mean={np.nanmean(theta_dot):.3f}")
-        print(f"rho_dot (m/s):     mean={np.nanmean(rho_dot):.3f}")
 
         plt.figure(figsize=(12, 6))
         plt.plot(v_deg_s, label="Angular Velocity (deg/s)")
@@ -361,7 +339,6 @@ def calculate_angular_velocity(explorer) -> None:
 
     except Exception as e:
         print(f"Error computing angular velocity: {e}")
-
 
 def calculate_fvr(explorer) -> None:
     """
@@ -384,16 +361,12 @@ def calculate_fvr(explorer) -> None:
         gy = np.asarray(interpolated_data["Gaze_Y"], dtype=float)
 
         # Optional smoothing (helps if epsilon gets noisy)
-        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
-        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
+        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
+        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
 
         rho, _, _ = explorer.gaze_calculator.compute_spherical_coords(gx, gy)
         epsilon_rad = explorer.gaze_calculator.compute_epsilon_from_gaze_direction(gx, gy)
         fvr_m = explorer.gaze_calculator.compute_fvr(rho, epsilon_rad)
-
-        print("\nFoveal Visual Radius (FVR) Stats:")
-        print(f"FVR (m):      min={np.nanmin(fvr_m):.6f}, max={np.nanmax(fvr_m):.6f}, mean={np.nanmean(fvr_m):.6f}")
-        print(f"Epsilon (deg): mean={np.nanmean(np.rad2deg(epsilon_rad)):.2f}")
 
         plt.figure(figsize=(12, 6))
         plt.plot(fvr_m, label="FVR (m)")
