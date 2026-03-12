@@ -171,8 +171,10 @@ class HelpWindow:
         self.refresh()
 
         # Size/center
+        self.win.minsize(620, 500)
         self.win.update_idletasks()
-        w, h = 760, 520
+        w = 760
+        h = min(700, self.win.winfo_screenheight() - 80)
         x = (self.win.winfo_screenwidth() // 2) - (w // 2)
         y = (self.win.winfo_screenheight() // 2) - (h // 2)
         self.win.geometry(f"{w}x{h}+{max(0,x)}+{max(0,y)}")
@@ -203,7 +205,7 @@ class HelpWindow:
 
             "Resume Behavior\n"
             "• If session_state.json exists for the loaded file, you will be prompted to resume session when you load that file.\n"
-            "• Resuming restores trial selection, channel filter, export selections, and marker selections.\n"
+            "• Resuming restores trial selection and channel filter. Export and marker selections are loaded from user preferences.\n"
             "• Resume does NOT change trial marks or notes (those are stored separately in Trial_Notes.csv).\n\n"
 
             "Buttons (In UI Order)\n"

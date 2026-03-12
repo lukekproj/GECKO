@@ -310,6 +310,7 @@ def _choose_large_gap_strategy(
     large_gaps: list[Gap],
     gap_index: int = 1,
     gap_total: int = 1,
+    fig=None,
 ) -> Optional[str]:
     """
     Show preview plots for large gaps and return the user's chosen strategy.
@@ -322,9 +323,18 @@ def _choose_large_gap_strategy(
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
-    fig.canvas.manager.window.showMaximized()
-    plt.subplots_adjust(bottom=0.15, hspace=0.3)
+    reusing_fig = fig is not None
+
+    if reusing_fig:
+        fig.clear()
+        ax1 = fig.add_subplot(3, 1, 1)
+        ax2 = fig.add_subplot(3, 1, 2)
+        ax3 = fig.add_subplot(3, 1, 3)
+        fig.subplots_adjust(bottom=0.15, hspace=0.3)
+    else:
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
+        fig.canvas.manager.window.showMaximized()
+        plt.subplots_adjust(bottom=0.15, hspace=0.3)
 
     gap = large_gaps[0]
     title_text = f"{name} - Gap {gap_index} of {gap_total}: frames {gap.start}-{gap.end} ({gap.length} frames)"
@@ -384,25 +394,37 @@ def _choose_large_gap_strategy(
 
     def on_linear(event):
         user_decision["action"] = "linear"
-        plt.close(fig)
+        if reusing_fig:
+            fig.canvas.stop_event_loop()
+        else:
+            plt.close(fig)
 
     def on_saccadic(event):
         user_decision["action"] = "saccadic"
-        plt.close(fig)
+        if reusing_fig:
+            fig.canvas.stop_event_loop()
+        else:
+            plt.close(fig)
 
     def on_nan(event):
         user_decision["action"] = "nan"
-        plt.close(fig)
+        if reusing_fig:
+            fig.canvas.stop_event_loop()
+        else:
+            plt.close(fig)
 
     def on_cancel(event):
         user_decision["action"] = "cancel"
-        plt.close(fig)
+        if reusing_fig:
+            fig.canvas.stop_event_loop()
+        else:
+            plt.close(fig)
 
     # Create four buttons
-    ax_linear   = plt.axes([0.05, 0.05, 0.2, 0.06])
-    ax_saccadic = plt.axes([0.28, 0.05, 0.2, 0.06])
-    ax_nan      = plt.axes([0.51, 0.05, 0.2, 0.06])
-    ax_cancel   = plt.axes([0.74, 0.05, 0.2, 0.06])
+    ax_linear   = fig.add_axes([0.05, 0.05, 0.2, 0.06])
+    ax_saccadic = fig.add_axes([0.28, 0.05, 0.2, 0.06])
+    ax_nan      = fig.add_axes([0.51, 0.05, 0.2, 0.06])
+    ax_cancel   = fig.add_axes([0.74, 0.05, 0.2, 0.06])
 
     btn_linear   = Button(ax_linear,   "Linear\nInterpolation")
     btn_saccadic = Button(ax_saccadic, "Saccadic\nInterpolation")
@@ -426,8 +448,11 @@ def _choose_large_gap_strategy(
         "on_cancel": on_cancel,
     }
 
-    # Block until user closes (via button)
-    plt.show(block=True)
+    if reusing_fig:
+        fig.canvas.draw()
+        fig.canvas.start_event_loop(timeout=0)
+    else:
+        plt.show(block=True)
 
     # After window closes, user_decision["action"] is set (or still None)
     if user_decision["action"] is None:
@@ -515,18 +540,35 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
                 interpolated = _linear_interpolate_gap(interpolated, g.indices)
 
         if large:
+            import matplotlib.pyplot as plt
+            gap_fig = plt.figure(figsize=(12, 10))
+            try:
+                gap_fig.canvas.manager.window.showMaximized()
+            except Exception:
+                pass
+            plt.show(block=False)
+
             for gap_idx, g in enumerate(large, start=1):
                 action = _choose_large_gap_strategy(
-                    explorer, channel_name, trial_info, data, interpolated,
-                    [g], gap_index=gap_idx, gap_total=len(large)
+                    explorer, channel_name, trial_info, data, interpolated, [g],
+                    gap_index=gap_idx, gap_total=len(large), fig=gap_fig
                 )
                 if action is None:
+                    try:
+                        plt.close(gap_fig)
+                    except Exception:
+                        pass
                     return None
                 if action == "linear":
                     interpolated = _linear_interpolate_gap(interpolated, g.indices)
                 elif action == "saccadic":
                     interpolated = saccadic_interpolate_gap(interpolated, g.indices)
-                # else: leave as NaN, do nothing
+                # else "nan": leave gap as-is
+
+            try:
+                plt.close(gap_fig)
+            except Exception:
+                pass
 
         interpolated_channels[channel_name] = interpolated
         explorer.interpolation_cache[(trial_name, channel_name)] = interpolated
