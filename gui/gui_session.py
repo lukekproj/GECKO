@@ -106,8 +106,6 @@ class SessionManager:
         filepath: str,
         channel_filter: str = "",
         inspect_selection: Optional[set] = None,
-        export_selection: Optional[set] = None,
-        marker_selection: Optional[set] = None,
     ) -> None:
         """
         Write current GUI state to session_state.json.
@@ -124,10 +122,6 @@ class SessionManager:
             Current search/filter text.
         inspect_selection : set or None
             Sticky channel inspection selections (by name).
-        export_selection : set or None
-            Sticky export channel selections (by name).
-        marker_selection : set or None
-            Sticky marker event selections (by name).
         """
         p = self.session_state_path()
         if not p or not current_trial_name:
@@ -147,8 +141,6 @@ class SessionManager:
             "trial_index": trial_index,
             "channel_filter": channel_filter,
             "inspect_selection": sorted(inspect_selection or []),
-            "export_selection": sorted(export_selection or []),
-            "marker_selection": sorted(marker_selection or []),
         }
 
         try:
