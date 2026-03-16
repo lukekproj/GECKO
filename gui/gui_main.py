@@ -4,36 +4,58 @@ KINARM Data Explorer - Main GUI Application
 This is the primary interface for loading KINARM data files, selecting trials,
 inspecting channels, and performing gaze analysis.
 
-Dependencies: tkinter, KinarmDataExplorer, matplotlib, numpy, pandas
+Dependencies: tkinter, KinarmDataExplorer, matplotlib
 """
+# Standard library
 from pathlib import Path
+import platform
 import sys
 
-# Add src directory to Python path
+# Add src directory to Python path — must precede all local imports
 src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
-# Imports
+# Standard library — GUI
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from data.data_loader import KinarmDataExplorer
-from gui.gui_help import HelpWindow
-from gui.gui_session import SessionManager
-from utility.user_prefs import get_label_order, set_label_order, get_export_defaults, get_marker_defaults, get_save_location, set_save_location, MAX_LABELER_CHANNELS, get_labeler_channel_defaults, set_labeler_channel_defaults
 
-import matplotlib 
-import platform
-from utility.user_prefs import MPL_BACKEND
+# Local — imported before matplotlib to configure backend
+from utility.user_prefs import (
+    get_export_defaults,
+    get_marker_defaults,
+    get_save_location,
+    set_save_location,
+    set_labeler_channel_defaults,
+    MPL_BACKEND,
+)
+
+# Third-party — backend must be set before pyplot import
+import matplotlib
 matplotlib.use(MPL_BACKEND)
 import matplotlib.pyplot as plt
 
-from gui.gui_metadata_viewer import TaskProtocolWindow
+# Local — data
+from data.data_loader import KinarmDataExplorer
+
+# Local — utility
 from utility.kinarm_utils import find_trial_tp_number
-from gui.gui_utils import center_window, configure_big_treeview_style, log_crash
-sys.excepthook = log_crash
+
+# Local — gui
+from gui.gui_utils import (
+    apply_dpi_scaling, 
+    center_window, 
+    configure_big_treeview_style, 
+    log_crash
+)
+from gui.gui_session import SessionManager
+from gui.gui_help import HelpWindow
 from gui.gui_trial_panel import TrialPanel
 from gui.gui_channel_panel import ChannelPanel
 from gui.gui_export_panel import ExportPanel
+from gui.gui_labeler import GazeLabelerController
+from gui.gui_metadata_viewer import TaskProtocolWindow
+
+sys.excepthook = log_crash
 
 class KinarmDataExplorerGUI:
     """
@@ -75,7 +97,6 @@ class KinarmDataExplorerGUI:
         self._sticky_marker_selection = set(get_marker_defaults())
         self._populating_export = False
         self._populating = False                    # Flag to prevent callback loops
-        self._open_figures = []
         self._trial_marks = {}  # Store trial quality marks
         self.available_events = []        
         self.custom_save_location = get_save_location()
@@ -88,6 +109,7 @@ class KinarmDataExplorerGUI:
         self.trial_panel = TrialPanel(self)
         self.channel_panel = ChannelPanel(self)
         self.export_panel_obj = ExportPanel(self)
+        self.labeler = GazeLabelerController(self)
 
         self._all_channels = []
         self._all_export_channels = []
@@ -96,36 +118,13 @@ class KinarmDataExplorerGUI:
         self._setup_gui()
         if hasattr(self, "channel_listbox"):
             self.channel_listbox.bind('<<ListboxSelect>>', self.channel_panel.on_channel_select)
-        self.help_win = HelpWindow(self.root, get_dynamic_text=self._help_dynamic_text)
+        self.help_win = HelpWindow(self.root)
 
         self._update_button_states()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    def _help_dynamic_text(self):
-        """Return current file/output paths for display in the Help window."""
-        kinarm = Path(self.explorer.filepath) if self.explorer else None
-        save_root = Path(self.custom_save_location) if self.custom_save_location else (Path.home() / "Desktop" / "gaze_labels")
-        notes = self._get_notes_csv_path()
-        state = self._session_state_path()
-        
-        # Get user_prefs.json location - construct path directly
-        prefs_path = Path.home() / ".config" / "KinarmDataExplorer" / "user_prefs.json"
-
-        return (
-            "Current Paths (Refresh once file is loaded)\n"
-            f"• Loaded file: {kinarm.as_posix() if kinarm else None}\n"
-            f"• Output root: {save_root.as_posix()}\n"
-            f"• Notes CSV: {notes.as_posix() if notes else None}\n"
-            f"• Session JSON: {state.as_posix() if state else None}\n"
-            f"• User preferences: {prefs_path.as_posix()}\n"
-        )
-
     def show_help(self):
         self.help_win.show()
-
-    def _session_state_path(self) -> Path | None:
-        """Delegate to SessionManager."""
-        return self.session.session_state_path()
 
     def _load_session_state(self) -> dict | None:
         """Delegate to SessionManager."""
@@ -155,10 +154,6 @@ class KinarmDataExplorerGUI:
         self._channel_filter_var.set(filt)
         self.channel_panel.apply_channel_filter()
 
-    def _get_notes_csv_path(self):
-        """Delegate to SessionManager."""
-        return self.session.notes_csv_path()
-
     def on_closing(self):
         """Cleanup when main window closes to prevent memory leaks."""
         try:
@@ -172,9 +167,6 @@ class KinarmDataExplorerGUI:
                         self.taskproto_win.window.destroy()
                 except Exception:
                     pass
-            
-            # Clear any remaining references
-            self._open_figures.clear()
             
         except Exception as e:
             print(f"Cleanup error: {e}")
@@ -206,7 +198,6 @@ class KinarmDataExplorerGUI:
         self.custom_save_location = None
         
         # Clear from preferences file
-        from utility.user_prefs import set_save_location
         set_save_location(None)
         
         # Update status display
@@ -229,7 +220,6 @@ class KinarmDataExplorerGUI:
         if directory:
             self.custom_save_location = directory
             # Save to preferences file
-            from utility.user_prefs import set_save_location
             set_save_location(directory)
             
             self.status_var.set(f"Selected Save Location: {directory}")
@@ -317,8 +307,8 @@ class KinarmDataExplorerGUI:
         self.status_label = tk.Label(
             parent,
             textvariable=self.status_var,
-            font=self.bold_font,  # Match first bar
-            anchor="w"  # Remove bg, relief, padx, pady
+            font=self.bold_font,
+            anchor="w"
         )
         self.status_label.pack(fill=tk.X, padx=6, pady=(0, 8))
 
@@ -518,7 +508,6 @@ class KinarmDataExplorerGUI:
 
             # Extract trial name from numbered list entry
             index = sel[0]
-            # Use index to get the actual trial name from explorer
             name = self.explorer.trial_names[index]
 
             if self.current_trial and self.current_trial.name == name:
@@ -646,252 +635,6 @@ class KinarmDataExplorerGUI:
         if self.explorer:
             self.explorer.calculate_fvr()
 
-    def _pick_labeler_channels(self):
-        """
-        Open a dialog for the user to select which channels to display
-        in the gaze labeler. Gaze_X and Gaze_Y are required and locked.
-        Returns a list of channel names or None if cancelled.
-        """
-        trial = self.current_trial
-        if not trial:
-            return None
-
-        available = [ch for ch in trial.kinematics.keys()
-                     if ch not in ("Gaze_X", "Gaze_Y")]
-
-        result = {"channels": None}
-
-        win = tk.Toplevel(self.root)
-        win.title("Select Labeler Channels")
-        win.resizable(False, True)
-        win.grab_set()
-
-        tk.Label(win, text="Gaze_X and Gaze_Y are always included.",
-                 font=self.bold_font).pack(padx=12, pady=(12, 4))
-        tk.Label(win, text=f"Select up to {MAX_LABELER_CHANNELS - 2} additional channels to overlay:",
-                 ).pack(padx=12, pady=(0, 8))
-
-        frame = tk.Frame(win)
-        frame.pack(padx=12, pady=(0, 8), fill=tk.BOTH, expand=True)
-
-        scrollbar = tk.Scrollbar(frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        listbox = tk.Listbox(frame, selectmode=tk.MULTIPLE, width=40, height=15,
-                             yscrollcommand=scrollbar.set)
-        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=listbox.yview)
-
-        for ch in available:
-            listbox.insert(tk.END, ch)
-
-        saved = get_labeler_channel_defaults()
-        defaults = saved if saved else ["xT", "yT"]
-        for i in range(listbox.size()):
-            if listbox.get(i) in defaults:
-                listbox.selection_set(i)
-
-        count_label = tk.Label(win, text="")
-        count_label.pack(padx=12)
-
-        max_extra = MAX_LABELER_CHANNELS - 2
-
-        def update_count(event=None):
-            n = len(listbox.curselection())
-            count_label.config(text=f"{n}/{max_extra} additional channels selected")
-            if n > max_extra:
-                count_label.config(fg="red")
-            else:
-                count_label.config(fg="black")
-
-        listbox.bind("<<ListboxSelect>>", update_count)
-        update_count()
-
-        btn_frame = tk.Frame(win)
-        btn_frame.pack(padx=12, pady=(4, 12))
-
-        def on_ok():
-            selected = [listbox.get(i) for i in listbox.curselection()]
-            if len(selected) > max_extra:
-                messagebox.showwarning("Too Many Channels",
-                    f"Please select at most {max_extra} additional channels.",
-                    parent=win)
-                return
-            set_labeler_channel_defaults(selected)
-            result["channels"] = ["Gaze_X", "Gaze_Y"] + selected
-            win.destroy()
-
-        def on_cancel():
-            win.destroy()
-
-        tk.Button(btn_frame, text="OK", width=10, command=on_ok).pack(side=tk.LEFT, padx=4)
-        tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side=tk.LEFT, padx=4)
-
-        self.root.wait_window(win)
-        return result["channels"]
-
-    def label_gaze(self):
-        """
-        Launch the interactive gaze labeling tool with multi-trial support.
-        
-        This opens the GazeLabeler interface where users can manually
-        label time periods as fixations, pursuits, or saccades.
-        The results are saved along with selected export channels.
-        Users can choose to continue to the next trial automatically.
-        """
-        try:
-            trial = self.current_trial
-            if not trial:
-                messagebox.showwarning("No Trial", "Please select a trial first.")
-                return
-            
-            # Prompt user to pick labeler channels (only on first iteration)
-            saved = get_labeler_channel_defaults()
-            if saved:
-                # Validate saved channels still exist in this trial
-                valid = [ch for ch in saved if ch in trial.kinematics]
-                labeler_channels = ["Gaze_X", "Gaze_Y"] + valid
-            else:
-                labeler_channels = self._pick_labeler_channels()
-                if labeler_channels is None:
-                    return
-            
-            # Start labeling loop - can continue through multiple trials
-            while trial is not None:
-                # Get interpolated gaze data for labeling
-                interpolated_data = self.explorer.get_interpolated_gaze_data(labeler_channels)
-                if interpolated_data is None:
-                    return
-
-                gaze_x = interpolated_data["Gaze_X"] 
-                gaze_y = interpolated_data["Gaze_Y"]
-                overlay_channels = {k: v for k, v in interpolated_data.items()
-                                    if k not in ("Gaze_X", "Gaze_Y")}
-
-                # If UI failed to reselect properly, fall back to sticky selection
-                # Get all selections from UI
-                ui_selections = [self.export_listbox.get(i) for i in self.export_listbox.curselection()]
-
-                # Fall back to sticky selection if UI failed
-                if not ui_selections and self._sticky_export_selection:
-                    all_selections = list(self._sticky_export_selection)
-                else:
-                    all_selections = ui_selections
-
-                # Separate channels from events
-                selected_export_channels = []
-                selected_events = []
-
-                for item in all_selections:
-                    # Check if this item is an event (it's in our available_events list)
-                    if item in self.available_events:
-                        # This is an event - add it directly
-                        selected_events.append(item)
-                    else:
-                        # This is a regular channel
-                        selected_export_channels.append(item)
-
-                # Find trial index for numbering (1-based)
-                trial_index = None
-                for idx, name in enumerate(self.explorer.trial_names):
-                    if name == trial.name:
-                        trial_index = idx + 1  # Convert to 1-based
-                        break
-
-                # Build trial info string for display with number prefix
-                tp_num = find_trial_tp_number(trial)
-                tp_text = f"TP #{tp_num}" if tp_num is not None else "TP #(unknown)"
-                frames = trial.frame_count
-                rate = trial.frame_rate
-                duration = frames / rate if rate > 0 else 0
-                
-                # Format: "2. 02_07_01  •  TP #14  •  1538 frames @ 1000.00 Hz (~1.54s)"
-                try:
-                    display_name = "_".join(trial.name.split("_")[1:])
-                except Exception:
-                    display_name = trial.name
-
-                # Find total number of trials for progress indicator
-                total_trials = len(self.explorer.trial_names)
-                trial_info = (
-                    f"{trial_index}/{total_trials}. {display_name}  •  {tp_text}  •  "
-                    f"{frames} frames @ {rate:.2f} Hz (~{duration:.2f}s)"
-                )
-
-                # Launch gaze labeling process with trial info
-                from label.gaze_labeler_export import run_labeling_process
-
-                # Get selected marker events
-                selected_markers = [self.marker_listbox.get(i) for i in self.marker_listbox.curselection()]
-                label_order = get_label_order()
-                action, labeler = run_labeling_process(
-                    self.explorer,
-                    trial.name,
-                    gaze_x, gaze_y,
-                    overlay_channels,
-                    selected_export_channels,
-                    kinarm_path=self.explorer.filepath,
-                    trial_info=trial_info,
-                    output_root=self.custom_save_location,
-                    trial_index=trial_index,
-                    selected_events=selected_events,
-                    marker_events=selected_markers,
-                    label_order=label_order,
-                )
-
-                # Persist label order if the dialog was used and returned a labeler
-                try:
-                    if labeler and getattr(labeler, "label_order", None):
-                        set_label_order(labeler.label_order)
-                except Exception:
-                    pass
-
-                # Persist exactly what the user selected in the export listbox (channels + metrics + events)
-                self._sticky_export_selection = set(all_selections)
-                self.export_panel_obj.restore_sticky_export_selection()
-                self.session.save_state(
-                    current_trial_name=self.current_trial.name if self.current_trial else None,
-                    trial_names=self.explorer.trial_names if self.explorer else [],
-                    filepath=self.explorer.filepath if self.explorer else "",
-                    channel_filter=self._channel_filter_var.get(),
-                    inspect_selection=self._sticky_channel_selection,
-                )
-                
-                # Check result
-                if action == "next_trial":
-                    # User wants to continue to next trial
-                    # Find current trial index
-                    current_index = None
-                    for idx, name in enumerate(self.explorer.trial_names):
-                        if name == trial.name:
-                            current_index = idx
-                            break
-                    
-                    if current_index is not None and current_index + 1 < len(self.explorer.trial_names):
-                        # Update GUI selection
-                        self.trial_listbox.selection_clear(0, tk.END)
-                        self.trial_listbox.selection_set(current_index + 1)
-                        self.trial_listbox.see(current_index + 1)
-                        
-                        self.select_trial()
-                        trial = self.current_trial
-                        continue
-                    else:
-                        # No more trials
-                        messagebox.showinfo("Complete", "All trials labeled! That was the last trial.")
-                        return
-                        
-                elif action == "accept":
-                    # User clicked "Accept & Finish"
-                    messagebox.showinfo("Success", "Gaze labeling completed successfully!")
-                    return
-                else:
-                    # User cancelled
-                    return
-
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
     def show_task_protocol(self):
         """
         Open the Task Protocol viewer window.
@@ -928,39 +671,10 @@ class KinarmDataExplorerGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Could not open Task Protocol viewer:\n{e}")
 
-# =============================================================================
 # MAIN ENTRY POINT
-# =============================================================================
-
 def main():
     root = tk.Tk()
-
-    # Fix DPI scaling for high-resolution displays (Windows/macOS/Linux)
-    try:
-        # macOS Retina
-        if root.tk.call("tk", "windowingsystem") == "aqua":
-            root.tk.call('tk', 'scaling', 2.0)
-
-        # Windows High-DPI laptops
-        elif root.tk.call("tk", "windowingsystem") == "win32":
-            # Auto-scale based on system DPI
-            import ctypes
-            try:
-                user32 = ctypes.windll.user32
-                user32.SetProcessDPIAware()
-                dpi = user32.GetDpiForSystem()
-                root.tk.call('tk', 'scaling', dpi / 72.0)
-            except Exception:
-                # Fallback if DPI read fails
-                root.tk.call('tk', 'scaling', 1.5)
-
-        # Linux scaling (optional)
-        elif root.tk.call("tk", "windowingsystem") == "x11":
-            root.tk.call('tk', 'scaling', 1.5)
-
-    except Exception:
-        pass
-
+    apply_dpi_scaling(root)
     app = KinarmDataExplorerGUI(root)
     root.mainloop()
 

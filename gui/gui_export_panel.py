@@ -84,7 +84,7 @@ class ExportPanel:
                 ("Foveal Visual Radius", self.app.calculate_fvr, "fvr_btn"),
             ]),
             (label_parent, [
-                ("Label Events", self.app.label_gaze, "label_gaze_btn"),
+                ("Label Events", self.app.labeler.label_gaze, "label_gaze_btn"),
             ]),
             (utility_parent, [
                 ("Show Parameters", self.app.show_task_protocol, "task_protocol_btn"),

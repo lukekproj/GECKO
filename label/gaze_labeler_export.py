@@ -29,7 +29,7 @@ Directory Structure
         Target_Table.csv
         TP_Table.csv
 
-Notes for Developers
+Notes
 --------------------
 - GUI-independent: receives parameters (trial_index, selected_export_channels) from caller
 - Gaze calculations use Gaze_X and Gaze_Y channels (professor-confirmed)
@@ -39,7 +39,7 @@ Notes for Developers
 
 Integration Points
 ------------------
-- Called by: gui_task_protocol.py (main GUI)
+- Called by: gui_labeler.py (via GazeLabelerController)
 - Uses: GazeLabeler (label.gaze_labeler_ui)
 - Uses: KinarmDataExplorer.gaze_calculator (data.data_calculations)
 - Uses: smart_interpolate_trial_data (data.data_interpolation)
@@ -49,8 +49,10 @@ from __future__ import annotations
 
 from pathlib import Path
 import csv
+import json
 import pickle
 import sys
+import traceback
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -58,19 +60,33 @@ import pandas as pd
 
 from data.exam_load import ExamLoad
 from label.gaze_labeler_ui import GazeLabeler
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 
+# Maps user-facing channel name variants to internal standardized metric keys.
+# Handles both display names and legacy names for backward compatibility.
+GAZE_METRIC_ALIASES: Dict[str, str] = {
+    "Angular Velocity": "Angular_Velocity",
+    "Angular Velocity (deg/s)": "Angular_Velocity",
+    "Angular_Velocity": "Angular_Velocity",
+    "FVR": "FVR (Foveal_Visual_Radius)",
+    "FVR (mm)": "FVR (Foveal_Visual_Radius)",
+    "FVR (Foveal_Visual_Radius)": "FVR (Foveal_Visual_Radius)",
+    "Rho": "Rho (Distance)",
+    "Rho (Distance)": "Rho (Distance)",
+    "Theta": "Theta (Azimuth)",
+    "Theta (Azimuth)": "Theta (Azimuth)",
+    "Phi": "Phi (Elevation)",
+    "Phi (Elevation)": "Phi (Elevation)",
+}
 
-# -----------------------------------------------------------------------------
-# Constants
-# -----------------------------------------------------------------------------
-
-# KINARM uses sentinel values (e.g., ±99.9) to mark invalid samples (blinks, tracking loss)
-KINARM_INVALID_ABS_THRESHOLD = 99.9
-
-
-# -----------------------------------------------------------------------------
-# Data Cleaning Utilities
-# -----------------------------------------------------------------------------
+# Per-frame integer codes written to the gaze_event column in exported CSVs.
+# Code 0 is also used for unlabeled frames and the "other" category.
+GAZE_EVENT_CODES: Dict[str, int] = {
+    "saccade": 1,
+    "pursuit": 2,
+    "fixation": 3,
+    "other": 0,
+}
 
 def clean_kinarm_signal(values: Any) -> np.ndarray:
     """
@@ -182,10 +198,6 @@ def _force_len(values: Any, N: int) -> np.ndarray:
     
     return arr
 
-# -----------------------------------------------------------------------------
-# Gaze Metric Computation
-# -----------------------------------------------------------------------------
-
 def compute_metrics_for_export(
     explorer,
     gaze_x: np.ndarray,
@@ -234,8 +246,8 @@ def compute_metrics_for_export(
         gy = _fill_nans_linear(clean_kinarm_signal(gaze_y))
 
         # Apply same 20 Hz low-pass filter used in GUI calculations
-        gx = explorer.lowpass_filter(gx, cutoff=20, fs=frame_rate)
-        gy = explorer.lowpass_filter(gy, cutoff=20, fs=frame_rate)
+        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
+        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
 
         calc = explorer.gaze_calculator
 
@@ -264,14 +276,8 @@ def compute_metrics_for_export(
     
     except Exception as e:
         print(f"[export] Gaze metric computation failed: {e}")
-        import traceback
         traceback.print_exc()
         return {}
-
-
-# -----------------------------------------------------------------------------
-# File Path Generation and Reference Table Export
-# -----------------------------------------------------------------------------
 
 def get_export_path_for_trial(
     kinarm_path: str,
@@ -489,9 +495,7 @@ def write_trial_marks_and_notes(out_dir: Path, kinarm_path: str) -> None:
     - Silently skips if .kinarm.notes.json doesn't exist (first export scenario)
     - Notes text is properly escaped for CSV format
     - Empty notes are shown as empty strings for clarity
-    """
-    import json
-    
+    """    
     # Find the .kinarm.notes.json file
     notes_file = Path(kinarm_path).with_suffix('.kinarm.notes.json')
     
@@ -535,16 +539,12 @@ def write_trial_marks_and_notes(out_dir: Path, kinarm_path: str) -> None:
                 if mark or notes:
                     writer.writerow([trial_name, mark, notes])
         
-        print(f"✓ Trial marks and notes saved to: {csv_path}")
+        print(f"Trial marks and notes saved to: {csv_path}")
         
     except Exception as e:
         # Silently fail - don't block export if marks file is corrupted
         print(f"Note: Could not export trial marks/notes: {e}")
 
-
-# -----------------------------------------------------------------------------
-# Main Export Pipeline
-# -----------------------------------------------------------------------------
 
 def run_labeling_process(
     explorer,
@@ -575,8 +575,6 @@ def run_labeling_process(
         Name/ID of the trial to process.
     gaze_x, gaze_y : array-like
         Raw gaze position data.
-    xT, yT : array-like
-        Target position data.
     selected_export_channels : list[str]
         List of data channels to include in output files.
     kinarm_path : str, optional
@@ -622,9 +620,6 @@ def run_labeling_process(
     - Trial marked "bad" exports all frames as gaze_event=9
     """
     try:
-        # ---------------------------------------------------------------------
-        # Validate inputs and extract metadata
-        # ---------------------------------------------------------------------
         
         if kinarm_path is None:
             kinarm_path = getattr(explorer, "filepath", None)
@@ -653,20 +648,12 @@ def run_labeling_process(
         explorer.current_trial = trial
         exam = explorer.exam
         N = int(trial.frame_count)
-
-        # ---------------------------------------------------------------------
-        # Compute gaze metrics
-        # ---------------------------------------------------------------------
         
         gaze_metrics = compute_metrics_for_export(explorer, gaze_x, gaze_y, float(trial.frame_rate))
         
         # Normalize all metric arrays to trial length
         for k in list(gaze_metrics.keys()):
             gaze_metrics[k] = _force_len(gaze_metrics[k], N)
-
-        # ---------------------------------------------------------------------
-        # Extract TP number for file naming
-        # ---------------------------------------------------------------------
         
         tp_num = "NA"
         try:
@@ -685,10 +672,6 @@ def run_labeling_process(
         except Exception:
             tp_num = "NA"
 
-        # ---------------------------------------------------------------------
-        # Extract event frames for optional export columns
-        # ---------------------------------------------------------------------
-        
         event_frames: Dict[str, List[int]] = {}
         for ev in selected_events:
             matches = [e for e in trial.events if e.label.upper() == ev.upper()]
@@ -696,9 +679,6 @@ def run_labeling_process(
                 frames = [int(round(e.time * trial.frame_rate)) for e in matches]
                 event_frames[ev] = frames
 
-        # ---------------------------------------------------------------------
-        # Build marker frames for plotting (vertical lines) - USER SELECTED
-        # ---------------------------------------------------------------------
         marker_events = marker_events or []
         marker_frames: Dict[str, List[int]] = {}
 
@@ -706,10 +686,6 @@ def run_labeling_process(
             matches = [e for e in trial.events if e.label.upper() == ev.upper()]
             if matches:
                 marker_frames[ev] = [int(round(e.time * trial.frame_rate)) for e in matches]
-
-        # ---------------------------------------------------------------------
-        # Launch manual labeling UI
-        # ---------------------------------------------------------------------
         
         labeler = GazeLabeler(
             trial_name,
@@ -726,10 +702,6 @@ def run_labeling_process(
         if label_ranges is None or getattr(labeler, "cancel_all", False):
             print("Labeling cancelled by user. No files were written.")
             return False, None
-
-        # ---------------------------------------------------------------------
-        # Convert labeled time ranges to per-frame event vector
-        # ---------------------------------------------------------------------
         
         if labeler.bad_trial:
             # Trial marked as "bad" - export all frames as 9
@@ -737,35 +709,14 @@ def run_labeling_process(
         else:
             # Normal labeling: assign codes 1, 2, 3
             gaze_events = np.zeros(N, dtype=int)
-            label_code = {"saccade": 1, "pursuit": 2, "fixation": 3, "other":0}
 
             for name, time_ranges in label_ranges.items():
-                code = label_code.get(name, 0)
+                code = GAZE_EVENT_CODES.get(name, 0)
                 for start_frame, end_frame in time_ranges:
                     start_frame = max(0, int(start_frame))
                     end_frame = min(N - 1, int(end_frame))
                     if start_frame <= end_frame:
                         gaze_events[start_frame:end_frame + 1] = code
-
-        # ---------------------------------------------------------------------
-        # Prepare channels for export (interpolate raw, not computed metrics)
-        # ---------------------------------------------------------------------
-        
-        # Alias mapping for backward compatibility and user-friendly names
-        GAZE_METRIC_ALIASES = {
-            "Angular Velocity": "Angular_Velocity",
-            "Angular Velocity (deg/s)": "Angular_Velocity",
-            "Angular_Velocity": "Angular_Velocity",
-            "FVR": "FVR (Foveal_Visual_Radius)",
-            "FVR (mm)": "FVR (Foveal_Visual_Radius)",
-            "FVR (Foveal_Visual_Radius)": "FVR (Foveal_Visual_Radius)",
-            "Rho": "Rho (Distance)",
-            "Rho (Distance)": "Rho (Distance)",
-            "Theta": "Theta (Azimuth)",
-            "Theta (Azimuth)": "Theta (Azimuth)",
-            "Phi": "Phi (Elevation)",
-            "Phi (Elevation)": "Phi (Elevation)",
-        }
 
         # Build set of computed metric keys (never interpolate these)
         metric_key_set = set(gaze_metrics.keys())
@@ -826,10 +777,6 @@ def run_labeling_process(
             # Priority 5: Fallback
             return np.full(N, np.nan, dtype=float)
 
-        # ---------------------------------------------------------------------
-        # Generate output file paths
-        # ---------------------------------------------------------------------
-        
         csv_filename = get_export_path_for_trial(
             kinarm_path, trial_index, tp_num, count, "csv", output_root=output_root
         )
@@ -844,10 +791,6 @@ def run_labeling_process(
         # Write trial marks and notes summary
         write_trial_marks_and_notes(out_dir, kinarm_path)
 
-        # ---------------------------------------------------------------------
-        # Export to CSV (human-readable format)
-        # ---------------------------------------------------------------------
-        
         # Build CSV headers
         headers = (
             ["Frame", "Gaze_Events"]
@@ -885,10 +828,6 @@ def run_labeling_process(
                         row.append("")
 
                 writer.writerow(row)
-
-        # ---------------------------------------------------------------------
-        # Export to NPZ (compressed NumPy format)
-        # ---------------------------------------------------------------------
         
         save_dict: Dict[str, np.ndarray] = {
             "Frame": np.arange(N, dtype=int),
@@ -901,38 +840,27 @@ def run_labeling_process(
 
         np.savez_compressed(npz_filename, **save_dict)
 
-        # Report success
         print(f"CSV saved to: {csv_filename}")
         print(f"Compressed .npz saved to: {npz_filename}")
-        print(f"All files saved to: {out_dir}")
 
         return action, labeler
 
     except Exception:
-        import traceback
         print("\nExport pipeline failed with exception:")
         traceback.print_exc()
         return False, None
 
-
-# -----------------------------------------------------------------------------
-# Command-Line Interface (for backwards compatibility)
-# -----------------------------------------------------------------------------
-
 if __name__ == "__main__":
-    """
-    Command-line entry point for standalone usage.
-    
-    Usage
-    -----
-    python gaze_labeler_export.py <data.pkl> <path_to_kinarm_file>
-    
-    The data.pkl file should contain:
-        (trial_name, gaze_x, gaze_y, xT, yT, selected_export_channels)
-    
-    This interface is maintained for backwards compatibility with older scripts
-    and automated workflows. Most users should use the GUI (gui_task_protocol.py).
-    """
+    # Command-line entry point for standalone usage.
+    #
+    # Usage:
+    #   python gaze_labeler_export.py <data.pkl> <path_to_kinarm_file>
+    #
+    # The data.pkl file should contain:
+    #   (trial_name, gaze_x, gaze_y, selected_export_channels)
+    #
+    # Maintained for backwards compatibility with older scripts.
+    # Most users should use the GUI via GazeLabelerController.
     try:
         if len(sys.argv) < 3:
             raise ValueError("Usage: gaze_labeler_export.py <data.pkl> <path_to_kinarm_file>")

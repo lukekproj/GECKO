@@ -112,3 +112,39 @@ def log_crash(exc_type, exc_value, exc_traceback):
         root.destroy()
     except Exception:
         pass
+
+def apply_dpi_scaling(root):
+        """
+        Apply platform-appropriate DPI scaling to the root tkinter window.
+
+        Adjusts tk scaling factor based on the windowing system:
+        - macOS Retina: fixed 2.0 scale
+        - Windows: derived from system DPI (96-DPI baseline, 72.0 is tkinter's internal reference)
+        - Linux/X11: fixed 1.5 scale
+
+        Parameters
+        ----------
+        root : tk.Tk
+            The root tkinter window to apply scaling to.
+        """
+        try:
+            windowing_system = root.tk.call("tk", "windowingsystem")
+
+            if windowing_system == "aqua":
+                root.tk.call('tk', 'scaling', 2.0)
+
+            elif windowing_system == "win32":
+                import ctypes
+                try:
+                    user32 = ctypes.windll.user32
+                    user32.SetProcessDPIAware()
+                    dpi = user32.GetDpiForSystem()
+                    root.tk.call('tk', 'scaling', dpi / 72.0)
+                except Exception:
+                    root.tk.call('tk', 'scaling', 1.5)
+
+            elif windowing_system == "x11":
+                root.tk.call('tk', 'scaling', 1.5)
+
+        except Exception:
+            pass

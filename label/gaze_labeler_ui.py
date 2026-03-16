@@ -27,30 +27,38 @@ Features
 
 Integration
 -----------
-Called by: gui_main.py (via gaze_labeler_export.py)
+Called by: gui_labeler.py
 Returns to: gaze_labeler_export.py for file writing
 
-Notes for Developers
+Notes
 --------------------
 - Uses matplotlib event system for click detection and rendering
 - Blitting optimization for smooth real-time feedback
 - Range merging prevents fragmentation and ensures clean output
 - All button references must be stored to prevent garbage collection
 """
+# Standard library
+import tkinter as tk
+from tkinter import messagebox
 
-import matplotlib
+# Local — imported before matplotlib to configure backend
 from utility.user_prefs import MPL_BACKEND
+
+# Third-party
+import matplotlib
 matplotlib.use(MPL_BACKEND)
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, RadioButtons
 import numpy as np
-from tkinter import messagebox
-import tkinter as tk
 
+# Linestyle cycle for overlay channels in labeler plots.
+_OVERLAY_STYLES = ['--', '-.', ':', '--', '-.', ':']
 
-# -----------------------------------------------------------------------------
-# Main Labeler Class
-# -----------------------------------------------------------------------------
+# Color cycle for marker event vertical lines.
+_MARKER_COLORS = ['purple', 'orange', 'cyan', 'magenta', 'lime', 'pink', 'brown', 'gray']
+
+# Linewidth for marker event vertical lines.
+_MARKER_LINEWIDTH = 1.8
 
 class GazeLabeler:
     """
@@ -74,8 +82,6 @@ class GazeLabeler:
         Formatted display string with full trial details.
     gaze_x, gaze_y : np.ndarray
         Optimized gaze position data (may be downsampled for performance).
-    xT, yT : np.ndarray
-        Target position data (matched to gaze arrays).
     label_ranges : dict
         Dictionary mapping label types to lists of (start, end) frame ranges.
     cancel_all : bool
@@ -94,8 +100,6 @@ class GazeLabeler:
             Name/ID of the experimental trial being analyzed.
         gaze_x, gaze_y : array-like
             Arrays showing where the person was looking (x,y coordinates in meters).
-        xT, yT : array-like
-            Arrays showing where targets appeared (x,y coordinates in meters).
         trial_info : str, optional
             Formatted string with full trial details for display banner.
         marker_frames : dict, optional
@@ -126,8 +130,8 @@ class GazeLabeler:
             gaze_x, gaze_y, self.overlay_channels
         )
 
-        # Initialize storage for labeled eye movement events
-        self.label_ranges = {'fixation': [], 'pursuit': [], 'saccade': [], 'other': []} # 'other' can be used for general eye movements that dont fit under other categories
+        # 'other' can be used for general eye movements that dont fit under other categories
+        self.label_ranges = {'fixation': [], 'pursuit': [], 'saccade': [], 'other': []}
         
         # Control flags
         self.cancel_all = False      # User cancelled entire process
@@ -135,10 +139,6 @@ class GazeLabeler:
 
         self._prompt_for_order = (label_order is None)
         self.label_order = list(label_order) if label_order else None
-
-    # -------------------------------------------------------------------------
-    # Data Optimization
-    # -------------------------------------------------------------------------
 
     def optimize_plot_data(self, gaze_x, gaze_y, overlay_channels, max_points=5000):
         """
@@ -151,15 +151,16 @@ class GazeLabeler:
         
         Parameters
         ----------
-        gaze_x, gaze_y, xT, yT : array-like
-            Full arrays of gaze and target data.
+        gaze_x, gaze_y : array-like
+            Full arrays of gaze position data.
+        overlay_channels : dict
+            Additional channels to downsample alongside gaze.
         max_points : int, optional
-            Maximum number of points to display (default 5000).
         
         Returns
         -------
         tuple of np.ndarray
-            Reduced arrays (gaze_x, gaze_y, xT, yT) that maintain data fidelity
+            Reduced arrays (gaze_x, gaze_y) that maintain data fidelity
             while improving rendering performance.
         
         Algorithm
@@ -204,10 +205,6 @@ class GazeLabeler:
         
         optimized_overlays = {k: np.array(v)[idx] for k, v in overlay_channels.items()}
         return (np.array(gaze_x)[idx], np.array(gaze_y)[idx], optimized_overlays)
-
-    # -------------------------------------------------------------------------
-    # Range Manipulation
-    # -------------------------------------------------------------------------
 
     @staticmethod
     def _merge_ranges(ranges, pad=0):
@@ -334,10 +331,33 @@ class GazeLabeler:
             unlabeled_ranges.append((current_start, end))
         
         return unlabeled_ranges
+    
+    def _draw_marker_events(self, ax, total_frames: int) -> None:
+        """
+        Draw vertical lines on ax for each marker event frame.
 
-    # -------------------------------------------------------------------------
-    # Main Workflow
-    # -------------------------------------------------------------------------
+        Each event type gets a unique color cycled from _MARKER_COLORS.
+        Only the first line per event type is given a legend label.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes to draw on.
+        total_frames : int
+            Total number of frames in the trial (used for bounds check).
+        """
+        for marker_idx, (ev_label, frames) in enumerate(self.marker_frames.items()):
+            color = _MARKER_COLORS[marker_idx % len(_MARKER_COLORS)]
+            for i, frame in enumerate(frames):
+                if 0 <= frame < total_frames:
+                    ax.axvline(
+                        x=frame,
+                        color=color,
+                        linestyle="-",
+                        linewidth=_MARKER_LINEWIDTH,
+                        alpha=0.8,
+                        label=(ev_label if i == 0 else "")
+                    )
 
     def plot_and_select_range(self):
         """
@@ -433,17 +453,13 @@ class GazeLabeler:
                 continue  # Return to summary after editing
             elif summary_action == "restart_all":
                 # Clear all labels and restart from beginning
-                self.label_ranges = {'fixation': [], 'pursuit': [], 'saccade': []}
+                self.label_ranges = {'fixation': [], 'pursuit': [], 'saccade': [], 'other': []}
                 initial_labeling_done = False
                 continue
             else:
                 # User cancelled
                 self.cancel_all = True
                 return (None, None)
-
-    # -------------------------------------------------------------------------
-    # Single Label Type Interface
-    # -------------------------------------------------------------------------
 
     def _label_single_type(self, label_type, label_colors, total_frames, show_previous, is_editing):
         """
@@ -529,27 +545,12 @@ class GazeLabeler:
             bbox=dict(boxstyle="round,pad=0.3", facecolor='lightgray', alpha=0.8)
         )
 
-        # Plot gaze and target data, * 100 to convert from m to cm.
         ax.plot(self.gaze_x * 100, label='Gaze X')
         ax.plot(self.gaze_y * 100, label='Gaze Y')
-        overlay_styles = ['--', '-.', ':', '--', '-.', ':']
         for i, (name, data) in enumerate(self.overlay_channels.items()):
-            ax.plot(data * 100, label=name, linestyle=overlay_styles[i % len(overlay_styles)])
-        
-        # Draw any user-selected marker events with unique colors
-        marker_colors = ['purple', 'orange', 'cyan', 'magenta', 'lime', 'pink', 'brown', 'gray']
-        for marker_idx, (ev_label, frames) in enumerate(self.marker_frames.items()):
-            color = marker_colors[marker_idx % len(marker_colors)]  # Cycle through colors
-            for i, frame in enumerate(frames):
-                if 0 <= frame < total_frames:
-                    ax.axvline(
-                        x=frame,
-                        color=color,
-                        linestyle="-",
-                        linewidth=1.8,
-                        alpha=0.8,
-                        label=(ev_label if i == 0 else "")
-                    )
+            ax.plot(data * 100, label=name, linestyle=_OVERLAY_STYLES[i % len(_OVERLAY_STYLES)])
+
+        self._draw_marker_events(ax, total_frames)
 
         # Show other labeled types as background (low alpha for context)
         for prev_label in show_previous:
@@ -571,10 +572,6 @@ class GazeLabeler:
         background = fig.canvas.copy_from_bbox(ax.bbox)
         selection_artists = []
         current_line_artist = None
-
-        # ---------------------------------------------------------------------
-        # Helper Functions for Rendering
-        # ---------------------------------------------------------------------
 
         def _draw_current_spans(merged_ranges):
             """Render colored highlighting for selected time periods."""
@@ -656,10 +653,6 @@ class GazeLabeler:
 
         # Use fast redraw by default
         redraw = redraw_fast
-
-        # ---------------------------------------------------------------------
-        # Event Handlers
-        # ---------------------------------------------------------------------
 
         def on_click(event):
             """Handle mouse clicks for time period selection."""
@@ -797,10 +790,6 @@ class GazeLabeler:
         fig.canvas.mpl_connect('motion_notify_event', on_hover)
         fig.canvas.mpl_connect('close_event', on_close)
 
-        # ---------------------------------------------------------------------
-        # Create Buttons
-        # ---------------------------------------------------------------------
-
         if is_editing:
             # Edit mode: Undo, Mark All, Erase, Clear, Finish, Cancel (centered - 6 buttons)
             ax_undo = plt.axes([0.175, 0.05, 0.10, 0.075])
@@ -824,7 +813,7 @@ class GazeLabeler:
             btn_finish.on_clicked(on_finish)
             btn_skip.on_clicked(on_skip_or_cancel)
 
-            # CRITICAL: Store button references to prevent garbage collection
+            # Button references must be stored — matplotlib garbage collects unreferenced widgets.
             self._btn_refs = [btn_undo, btn_mark_all, btn_erase, btn_clear, btn_finish, btn_skip]
         else:
             # Initial mode: Undo, Mark All, Clear, Finish, Skip, Quit (centered)
@@ -852,22 +841,16 @@ class GazeLabeler:
             btn_mark_all.on_clicked(on_mark_all)
             btn_erase.on_clicked(on_erase_toggle)
 
-            # CRITICAL: Store button references to prevent garbage collection
+             # Button references must be stored — matplotlib garbage collects unreferenced widgets.
             self._btn_refs = [btn_undo, btn_mark_all, btn_erase, btn_clear, btn_finish, btn_skip, btn_quit]
 
         # Initial draw and show
         redraw()
 
-        # Force button rendering (fixes multi-monitor display issue)
-        fig.canvas.draw
         fig.canvas.flush_events()
         fig.canvas.draw()
 
         plt.show()
-
-    # -------------------------------------------------------------------------
-    # Summary Interface
-    # -------------------------------------------------------------------------
 
     def _create_summary_plot(self, label_colors):
         """
@@ -921,27 +904,12 @@ class GazeLabeler:
                 ha='center', va='top', fontsize=10, weight='bold',
                 bbox=dict(boxstyle="round,pad=0.4", facecolor='lightblue', alpha=0.9))
         
-        # Plot original gaze and target data, * 100 to convert from m to cm
         ax.plot(self.gaze_x * 100, label='Gaze X')
         ax.plot(self.gaze_y * 100, label='Gaze Y')
-        overlay_styles = ['--', '-.', ':', '--', '-.', ':']
         for i, (name, data) in enumerate(self.overlay_channels.items()):
-            ax.plot(data * 100, label=name, linestyle=overlay_styles[i % len(overlay_styles)])
-        
-        # Draw any user-selected marker events with unique colors
-        marker_colors = ['purple', 'orange', 'cyan', 'magenta', 'lime', 'pink', 'brown', 'gray']
-        for marker_idx, (ev_label, frames) in enumerate(self.marker_frames.items()):
-            color = marker_colors[marker_idx % len(marker_colors)]  # Cycle through colors
-            for i, frame in enumerate(frames):
-                if 0 <= frame < len(self.gaze_x):
-                    ax.axvline(
-                        x=frame,
-                        color=color,
-                        linestyle="-",
-                        linewidth=1.8,
-                        alpha=0.8,
-                        label=(ev_label if i == 0 else "")
-                    )
+            ax.plot(data * 100, label=name, linestyle=_OVERLAY_STYLES[i % len(_OVERLAY_STYLES)])
+
+        self._draw_marker_events(ax, len(self.gaze_x))
 
         # Overlay all labeled events with transparency
         for label_type, ranges in self.label_ranges.items():
@@ -974,10 +942,6 @@ class GazeLabeler:
         
         # Track user's choice
         choice = {"method": None}
-        
-        # ---------------------------------------------------------------------
-        # Button Handlers
-        # ---------------------------------------------------------------------
 
         def on_bad_trial_toggle(event):
             """Toggle the bad trial flag and update button appearance."""
@@ -1030,11 +994,7 @@ class GazeLabeler:
         
         def on_close(event):
             if choice["method"] is None:
-                choice["method"] = None
-        
-        # ---------------------------------------------------------------------
-        # Create Buttons
-        # ---------------------------------------------------------------------
+                pass
 
         button_y = 0.02
         button_height = 0.06
@@ -1077,7 +1037,7 @@ class GazeLabeler:
         # Connect close event
         fig.canvas.mpl_connect('close_event', on_close)
         
-        # CRITICAL: Keep button references to prevent garbage collection
+        # Button references must be stored — matplotlib garbage collects unreferenced widgets.
         self._summary_btn_refs = [btn_fix, btn_pur, btn_sac, btn_other, btn_restart, btn_next, btn_accept, btn_bad_trial]
         
         plt.show()
