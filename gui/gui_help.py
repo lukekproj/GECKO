@@ -124,9 +124,8 @@ class HelpWindow:
         Optional callback returning a string to append after the static help
         content. Called each time the user clicks Refresh.
     """
-    def __init__(self, parent, *, get_dynamic_text=None):
+    def __init__(self, parent):
         self.parent = parent
-        self.get_dynamic_text = get_dynamic_text
         self.win = None
 
     def show(self):
@@ -165,7 +164,6 @@ class HelpWindow:
         btn_row = tk.Frame(self.win)
         btn_row.pack(fill=tk.X, padx=10, pady=(0, 10))
 
-        tk.Button(btn_row, text="Refresh", command=self.refresh, width=12).pack(side=tk.LEFT)
         tk.Button(btn_row, text="Close", command=self.win.destroy, width=12).pack(side=tk.RIGHT)
 
         self.refresh()
@@ -196,7 +194,7 @@ class HelpWindow:
             "IMPORTANT – Save Location Behavior\n"
             "• Trial notes are written to Trial_Notes.csv in the output folder for the loaded file.\n"
             "• The CSV file is created only after at least one trial is marked or noted.\n"
-            "• Session state (selected trial, filters, export selections, marker selections) "
+            "• Session state (selected trial and channel filter) "
             "is saved to session_state.json in the same folder.\n"
             "• If you change the Save Location later, the program will read/write from the new folder.\n"
             "• If previous notes/session files exist in a different location, they will not load "
@@ -238,17 +236,13 @@ class HelpWindow:
             "• Trial_Notes.csv is created only after a trial is marked or noted.\n"
             "• session_state.json is created after trial selection or export selections are saved.\n"
             "• If nothing is marked or selected, the folder may exist but remain empty.\n\n"
+
+            "Configuration File Locations\n"
+            "• user_prefs.json: ~/.config/KinarmDataExplorer/ (macOS/Linux) or "
+            "AppData\\Roaming\\KinarmDataExplorer\\ (Windows)\n"
+            "• session_state.json and Trial_Notes.csv: located in your selected Save Location, "
+            "in a subfolder named after the loaded .kinarm file.\n"
         )
 
-        extra = ""
-        if callable(self.get_dynamic_text):
-            try:
-                extra = self.get_dynamic_text()
-            except Exception:
-                extra = ""
-
         self.text.insert(tk.END, base)
-        if extra:
-            self.text.insert(tk.END, "\n" + extra.strip() + "\n")
-
         self.text.config(state=tk.DISABLED)
