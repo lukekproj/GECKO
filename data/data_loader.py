@@ -33,9 +33,9 @@ from data.data_calculations import (
     GazeCalculator
 )
 from utility.user_prefs import (
-    HAND_LOWPASS_CUTOFF_HZ,
-    HAND_LOWPASS_SAMPLING_HZ, 
-    HAND_LOWPASS_ORDER
+    DEFAULT_GAZE_LOWPASS_ORDER,
+    DEFAULT_GAZE_SAMPLING_HZ,
+    DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 )
 from dataclasses import dataclass
 
@@ -184,7 +184,7 @@ class KinarmDataExplorer:
         interpolated = smart_interpolate_trial_data(self, gaze_channels)
         return interpolated
 
-    def lowpass_filter(self, data, cutoff: float = HAND_LOWPASS_CUTOFF_HZ, fs: float = HAND_LOWPASS_SAMPLING_HZ, order: int = HAND_LOWPASS_ORDER) -> np.ndarray:
+    def lowpass_filter(self, data, cutoff: float = DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs: float = DEFAULT_GAZE_SAMPLING_HZ, order: int = DEFAULT_GAZE_LOWPASS_ORDER) -> np.ndarray:
         """
         Apply a low-pass Butterworth filter to reduce high-frequency noise.
 
@@ -199,7 +199,7 @@ class KinarmDataExplorer:
         cutoff : float
             Cutoff frequency (Hz). 
         fs : float
-            Sampling frequency (Hz). Defaults to HAND_LOWPASS_SAMPLING_HZ -- 
+            Sampling frequency (Hz). Defaults to DEFAULT_GAZE_LOWPASS_SAMPLING_HZ -- 
             prefer passing trial.frame_rate directly where possible.
         order : int
             Filter order.
@@ -258,13 +258,8 @@ class KinarmDataExplorer:
         dt = 1.0 / fs
 
         def deriv(signal: np.ndarray) -> np.ndarray:
-            """Numerical derivative with low-pass filtering to reduce noise.
-            
-            Defined as a closure to capture dt and fs from the enclosing scope,
-            keeping the derived channel definitions clean.
-            """
-            raw = np.gradient(signal, dt)
-            return self.lowpass_filter(raw, cutoff=HAND_LOWPASS_CUTOFF_HZ, fs=fs, order=HAND_LOWPASS_ORDER)
+            """Numerical derivative of a kinematic signal."""
+            return np.gradient(signal, dt)
 
         def magnitude(x: np.ndarray, y: np.ndarray) -> np.ndarray:
             """2D Euclidean vector magnitude."""

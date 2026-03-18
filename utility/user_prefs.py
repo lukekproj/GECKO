@@ -64,6 +64,7 @@ PREFS_FILE_NAME = "user_prefs.json"
 # =============================================================================
 # Lab-Configurable Processing Parameters
 # =============================================================================
+
 # These parameters control all signal processing in the application.
 # Labs should adjust these to match their KINARM setup and analysis pipeline.
 
@@ -75,14 +76,8 @@ KINARM_INVALID_ABS_THRESHOLD = 99.9     # |value| >= this treated as invalid (Na
 # Uses a Butterworth filter with filtfilt (zero-phase, forward-backward pass).
 # The effective order is double what's specified here due to filtfilt.
 DEFAULT_GAZE_LOWPASS_CUTOFF_HZ = 20            # Cutoff frequency (Hz)
+DEFAULT_GAZE_SAMPLING_HZ = 1000                  # Sampling Frequency (Hz)
 DEFAULT_GAZE_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
-
-# --- Hand Kinematic Derived Channel Filter ---
-# Applied to velocity and acceleration channels computed from hand position.
-# Uses the same Butterworth + filtfilt approach as the gaze filter.
-HAND_LOWPASS_CUTOFF_HZ = 20           # Cutoff frequency (Hz)
-HAND_LOWPASS_SAMPLING_HZ = 1000        # Sampling Frequency (Hz)
-HAND_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
 
 # --- Savitzky-Golay Filter (Angular Velocity Derivatives) ---
 # Used to compute time derivatives of eye-centered Cartesian coordinates
@@ -105,10 +100,6 @@ SACCADIC_SIGMOID_STEEPNESS = 10.0       # Higher = sharper transition
 MAX_LABELER_CHANNELS = 6
 
 DEFAULT_TIMESTAMP_SPACING_S = 0.001  # 1ms default for typical KINARM data
-
-# -----------------------------------------------------------------------------
-# Path Management
-# -----------------------------------------------------------------------------
 
 def _app_dir() -> Path:
     """
@@ -157,11 +148,6 @@ def prefs_path() -> Path:
     PosixPath('/home/user/.config/KinarmDataExplorer/user_prefs.json')
     """
     return _app_dir() / PREFS_FILE_NAME
-
-
-# -----------------------------------------------------------------------------
-# Core Preferences I/O
-# -----------------------------------------------------------------------------
 
 def load_prefs() -> Dict[str, Any]:
     """
@@ -249,11 +235,6 @@ def save_prefs(prefs: Dict[str, Any]) -> None:
         # Write failed - silently continue
         # Could add logging here for debugging
         pass
-
-
-# -----------------------------------------------------------------------------
-# Preference-Specific Accessors
-# -----------------------------------------------------------------------------
 
 def get_export_defaults() -> List[str]:
     """
@@ -471,10 +452,6 @@ def set_save_location(location: str | None):
     else:
         prefs.pop("custom_save_location", None)
     save_prefs(prefs)
-
-# -------------------------------------------------------------------------
-# Label Order (Gaze Labeler)
-# -------------------------------------------------------------------------
 
 _DEFAULT_LABEL_ORDER = ["fixation", "pursuit", "saccade"]
 
