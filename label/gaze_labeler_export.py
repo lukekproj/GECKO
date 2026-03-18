@@ -67,6 +67,22 @@ from label.gaze_labeler_ui import GazeLabeler
 # KINARM uses sentinel values (e.g., ±99.9) to mark invalid samples (blinks, tracking loss)
 KINARM_INVALID_ABS_THRESHOLD = 99.9
 
+# Alias mapping for backward compatibility and user-friendly names
+GAZE_METRIC_ALIASES = {
+        "Angular Velocity": "Angular_Velocity",
+        "Angular Velocity (deg/s)": "Angular_Velocity",
+        "Angular_Velocity": "Angular_Velocity",
+        "FVR": "FVR (Foveal_Visual_Radius)",
+        "FVR (mm)": "FVR (Foveal_Visual_Radius)",
+        "FVR (Foveal_Visual_Radius)": "FVR (Foveal_Visual_Radius)",
+        "Rho": "Rho (Distance)",
+        "Rho (Distance)": "Rho (Distance)",
+        "Theta": "Theta (Azimuth)",
+        "Theta (Azimuth)": "Theta (Azimuth)",
+        "Phi": "Phi (Elevation)",
+        "Phi (Elevation)": "Phi (Elevation)",
+    }
+
 
 # -----------------------------------------------------------------------------
 # Data Cleaning Utilities
@@ -637,12 +653,6 @@ def run_labeling_process(
         selected_events = selected_events or []
         selected_export_channels = selected_export_channels or []
 
-        # Clean raw inputs (convert KINARM sentinel values to NaN)
-        gaze_x = clean_kinarm_signal(gaze_x)
-        gaze_y = clean_kinarm_signal(gaze_y)
-        for k in overlay_channels:
-            overlay_channels[k] = clean_kinarm_signal(overlay_channels[k])
-
         # Extract repeat count from trial name (e.g., "TP1_2" → count=2)
         try:
             count = int(trial_name.split("_")[-1])
@@ -658,11 +668,19 @@ def run_labeling_process(
         # Compute gaze metrics
         # ---------------------------------------------------------------------
         
-        gaze_metrics = compute_metrics_for_export(explorer, gaze_x, gaze_y, float(trial.frame_rate))
-        
-        # Normalize all metric arrays to trial length
-        for k in list(gaze_metrics.keys()):
-            gaze_metrics[k] = _force_len(gaze_metrics[k], N)
+        # Only compute gaze metrics if at least one is selected for export
+        metric_names = set(GAZE_METRIC_ALIASES.values())
+        needs_metrics = any(
+            GAZE_METRIC_ALIASES.get(ch, ch) in metric_names
+            for ch in selected_export_channels
+        )
+
+        if needs_metrics:
+            gaze_metrics = compute_metrics_for_export(explorer, gaze_x, gaze_y, float(trial.frame_rate))
+            for k in list(gaze_metrics.keys()):
+                gaze_metrics[k] = _force_len(gaze_metrics[k], N)
+        else:
+            gaze_metrics = {}
 
         # ---------------------------------------------------------------------
         # Extract TP number for file naming
@@ -693,7 +711,7 @@ def run_labeling_process(
         for ev in selected_events:
             matches = [e for e in trial.events if e.label.upper() == ev.upper()]
             if matches:
-                frames = [int(round(e.time * trial.frame_rate)) for e in matches]
+                frames = sorted([int(round(e.time * trial.frame_rate)) for e in matches])
                 event_frames[ev] = frames
 
         # ---------------------------------------------------------------------
@@ -705,7 +723,7 @@ def run_labeling_process(
         for ev in marker_events:
             matches = [e for e in trial.events if e.label.upper() == ev.upper()]
             if matches:
-                marker_frames[ev] = [int(round(e.time * trial.frame_rate)) for e in matches]
+                marker_frames[ev] = sorted([int(round(e.time * trial.frame_rate)) for e in matches])
 
         # ---------------------------------------------------------------------
         # Launch manual labeling UI
@@ -746,26 +764,6 @@ def run_labeling_process(
                     end_frame = min(N - 1, int(end_frame))
                     if start_frame <= end_frame:
                         gaze_events[start_frame:end_frame + 1] = code
-
-        # ---------------------------------------------------------------------
-        # Prepare channels for export (interpolate raw, not computed metrics)
-        # ---------------------------------------------------------------------
-        
-        # Alias mapping for backward compatibility and user-friendly names
-        GAZE_METRIC_ALIASES = {
-            "Angular Velocity": "Angular_Velocity",
-            "Angular Velocity (deg/s)": "Angular_Velocity",
-            "Angular_Velocity": "Angular_Velocity",
-            "FVR": "FVR (Foveal_Visual_Radius)",
-            "FVR (mm)": "FVR (Foveal_Visual_Radius)",
-            "FVR (Foveal_Visual_Radius)": "FVR (Foveal_Visual_Radius)",
-            "Rho": "Rho (Distance)",
-            "Rho (Distance)": "Rho (Distance)",
-            "Theta": "Theta (Azimuth)",
-            "Theta (Azimuth)": "Theta (Azimuth)",
-            "Phi": "Phi (Elevation)",
-            "Phi (Elevation)": "Phi (Elevation)",
-        }
 
         # Build set of computed metric keys (never interpolate these)
         metric_key_set = set(gaze_metrics.keys())

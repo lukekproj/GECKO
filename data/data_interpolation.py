@@ -50,29 +50,34 @@ def _sanitize_kinarm_signal(values: np.ndarray) -> np.ndarray:
 def _should_sanitize_channel(channel_name: str) -> bool:
     """
     Determine if a channel should have sentinel values (±99.9) replaced with NaN.
-    
-    Returns False for channels where values > 99.9 are legitimate data.
-    
-    This uses substring matching (case-insensitive) to handle variations in naming
-    conventions across different labs and KINARM versions.
+
+    Only gaze position and pupil channels use KINARM's ±99.9 sentinel to mark
+    invalid samples (blinks, tracking loss). All other channel types — hand
+    kinematics, force plate, timestamps, acceleration, status bits — either
+    use different representations for invalid data or can legitimately exceed
+    the 99.9 threshold.
+
+    Parameters
+    ----------
+    channel_name : str
+        Name of the channel to check.
+
+    Returns
+    -------
+    bool
+        True only for Gaze_* channels, excluding Gaze_TimeStamp.
     """
     channel_lower = channel_name.lower()
-    
-    # Timestamp channels can have large values (seconds since start)
-    # Matches: TimeStamp, Timestamp, timestamp, time_stamp, etc.
+
+    # Only gaze channels use the ±99.9 sentinel value convention.
+    if not channel_lower.startswith("gaze_"):
+        return False
+
+    # Gaze_TimeStamp contains elapsed time in seconds and can legitimately
+    # exceed 99.9 for long trials.
     if "timestamp" in channel_lower:
         return False
-    
-    # Acceleration channels can have large values
-    # Matches: Acc, ACC, acceleration, L1Acc, HandAcc, etc.
-    if "acc" in channel_lower:
-        return False
-    
-    # Status/bit channels are integers that can be large
-    # Matches: Status, StatusBit, status_flag, bit, etc.
-    if "status" in channel_lower or "bit" in channel_lower:
-        return False
-    
+
     return True
 
 def _find_nan_gaps(data: np.ndarray) -> list[Gap]:

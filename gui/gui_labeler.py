@@ -158,15 +158,7 @@ class GazeLabelerController:
                     return
 
             while trial is not None:
-                interpolated_data = app.explorer.get_interpolated_gaze_data(labeler_channels)
-                if interpolated_data is None:
-                    return
-
-                gaze_x = interpolated_data["Gaze_X"]
-                gaze_y = interpolated_data["Gaze_Y"]
-                overlay_channels = {k: v for k, v in interpolated_data.items()
-                                    if k not in ("Gaze_X", "Gaze_Y")}
-
+                # Resolve export selections first so they're available for upfront interpolation
                 ui_selections = [app.export_listbox.get(i) for i in app.export_listbox.curselection()]
                 if not ui_selections and app._sticky_export_selection:
                     all_selections = list(app._sticky_export_selection)
@@ -180,6 +172,22 @@ class GazeLabelerController:
                         selected_events.append(item)
                     else:
                         selected_export_channels.append(item)
+
+                # Interpolate overlay and export channels upfront so all
+                # interpolation prompts appear before the labeler opens.
+                all_channels_to_interpolate = list(labeler_channels)
+                for ch in selected_export_channels:
+                    if ch not in all_channels_to_interpolate and ch in app.current_trial.kinematics:
+                        all_channels_to_interpolate.append(ch)
+
+                interpolated_data = app.explorer.get_interpolated_gaze_data(all_channels_to_interpolate)
+                if interpolated_data is None:
+                    return
+
+                gaze_x = interpolated_data["Gaze_X"]
+                gaze_y = interpolated_data["Gaze_Y"]
+                overlay_channels = {k: v for k, v in interpolated_data.items()
+                                    if k not in ("Gaze_X", "Gaze_Y")}
 
                 trial_index = None
                 for idx, name in enumerate(app.explorer.trial_names):
