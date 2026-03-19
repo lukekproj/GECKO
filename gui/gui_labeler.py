@@ -186,8 +186,9 @@ class GazeLabelerController:
 
                 gaze_x = interpolated_data["Gaze_X"]
                 gaze_y = interpolated_data["Gaze_Y"]
+                # Only include channels selected for overlay display, not export-only channels
                 overlay_channels = {k: v for k, v in interpolated_data.items()
-                                    if k not in ("Gaze_X", "Gaze_Y")}
+                                    if k in labeler_channels and k not in ("Gaze_X", "Gaze_Y")}
 
                 trial_index = None
                 for idx, name in enumerate(app.explorer.trial_names):
