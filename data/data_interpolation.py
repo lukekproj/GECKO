@@ -301,7 +301,7 @@ def _overlay_target_xt_yt(ax, explorer) -> None:
 
         h1, l1 = ax.get_legend_handles_labels()
         h2, l2 = ax2.get_legend_handles_labels()
-        ax.legend(h1 + h2, l1 + l2, loc="upper right")
+        ax.legend(h1 + h2, l1 + l2, loc="lower left")
     except Exception:
         return
 
@@ -338,7 +338,10 @@ def _choose_large_gap_strategy(
         fig.subplots_adjust(bottom=0.15, hspace=0.3)
     else:
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
-        fig.canvas.manager.window.showMaximized()
+        try:
+            fig.canvas.manager.window.showMaximized()
+        except AttributeError:
+            pass  # TkAgg or other backends don't support showMaximized
         plt.subplots_adjust(bottom=0.15, hspace=0.3)
 
     gap = large_gaps[0]
@@ -425,6 +428,13 @@ def _choose_large_gap_strategy(
         else:
             plt.close(fig)
 
+    def on_close(event):
+        user_decision["action"] = "cancel"
+        if reusing_fig:
+            fig.canvas.stop_event_loop()
+        else:
+            plt.close(fig)
+
     # Create four buttons
     ax_linear   = fig.add_axes([0.05, 0.05, 0.2, 0.06])
     ax_saccadic = fig.add_axes([0.28, 0.05, 0.2, 0.06])
@@ -453,6 +463,7 @@ def _choose_large_gap_strategy(
         "on_cancel": on_cancel,
     }
 
+    fig.canvas.mpl_connect('close_event', on_close)
     if reusing_fig:
         fig.canvas.draw()
         fig.canvas.start_event_loop(timeout=0)

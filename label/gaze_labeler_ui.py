@@ -369,7 +369,7 @@ class GazeLabeler:
         - Editing mode preserves other label types (shows as background)
         - "Next Trial" action automatically advances to next trial in GUI
         """
-        label_colors = {'fixation': 'green', 'pursuit': 'blue', 'saccade': 'red', 'other': 'orange'}
+        label_colors = {'fixation': 'green', 'pursuit': 'cornflowerblue', 'saccade': 'red', 'other': 'orange'}
         total_frames = len(self.gaze_x)
         initial_labeling_done = False
 
@@ -504,7 +504,10 @@ class GazeLabeler:
 
         # Create plot window
         fig, ax = plt.subplots(figsize=(12, 6))
-        fig.canvas.manager.window.showMaximized()
+        try:
+            fig.canvas.manager.window.showMaximized()
+        except AttributeError:
+            pass  # TkAgg or other backends don't support showMaximized
         plt.subplots_adjust(bottom=0.25, top=0.88)
 
         # Set banner text and color based on mode
@@ -563,7 +566,7 @@ class GazeLabeler:
         ax.set_xlabel("Frame")
         ax.set_ylabel("Distance (cm)")
         ax.grid(True)
-        ax.legend(loc='upper left')
+        ax.legend(loc='lower left')
 
         # Set up efficient rendering with blitting
         fig.canvas.draw()
@@ -895,7 +898,7 @@ class GazeLabeler:
         - Color-coded buttons for editing each label type
         - "Mark as Bad Trial" toggle (changes export behavior)
         - "Save & Next Trial" for batch processing workflow
-        - "Accept & Finish" to complete labeling
+        - "Save & Finish" to complete labeling
         
         Button Behaviors
         ----------------
@@ -903,7 +906,7 @@ class GazeLabeler:
         - Restart All: Clear all labels and start over from fixation
         - Mark as Bad Trial: Toggle flag (affects export - all frames become code 9)
         - Save & Next: Accept current labels and automatically load next trial
-        - Accept & Finish: Accept current labels and return to main GUI
+        - Save & Finish: Accept current labels and return to main GUI
         
         Notes
         -----
@@ -913,7 +916,10 @@ class GazeLabeler:
         """
         # Create summary plot with space for buttons
         fig, ax = plt.subplots(figsize=(12, 7))
-        fig.canvas.manager.window.showMaximized()
+        try:
+            fig.canvas.manager.window.showMaximized()
+        except AttributeError:
+            pass  # TkAgg or other backends don't support showMaximized
         plt.subplots_adjust(bottom=0.15, top=0.88)
         
         # Add trial info banner at top
@@ -1051,12 +1057,12 @@ class GazeLabeler:
         
         # Create buttons with colors matching label types
         btn_fix = Button(ax_edit_fix, 'Edit\nFixation', color=label_colors['fixation'], hovercolor='lightgreen')
-        btn_pur = Button(ax_edit_pur, 'Edit\nPursuit', color=label_colors['pursuit'], hovercolor='lightblue')
+        btn_pur = Button(ax_edit_pur, 'Edit\nPursuit', color=label_colors['pursuit'], hovercolor='cornflowerblue')
         btn_sac = Button(ax_edit_sac, 'Edit\nSaccade', color=label_colors['saccade'], hovercolor='lightcoral')
         btn_other = Button(ax_edit_other, 'Edit\nOther', color=label_colors['other'], hovercolor='lightyellow')
         btn_restart = Button(ax_restart, 'Restart\nAll', color='lightgray', hovercolor='gray')
         btn_next = Button(ax_next, 'Save &\nNext Trial', color='lightyellow', hovercolor='yellow')
-        btn_accept = Button(ax_accept, 'Accept &\nFinish', color='lightgreen', hovercolor='green')
+        btn_accept = Button(ax_accept, 'Save &\nFinish', color='lightgreen', hovercolor='green')
         
         # Bad trial button appearance depends on current state
         if self.bad_trial:

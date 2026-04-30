@@ -50,6 +50,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import List, Dict, Any
+import platform
 
 # Matplotlib backend for all GUI plotting.
 # Requires PyQt5. Change to "TkAgg" if PyQt5 is unavailable.
@@ -121,12 +122,11 @@ def _app_dir() -> Path:
     - For Windows AppData/Roaming compliance, modify base path detection
     - Parent directories are created if needed (parents=True)
     """
-    # Use XDG-compliant config directory
-    base = Path.home() / ".config"
-    
-    # TODO: For Windows AppData compliance, detect platform and use:
-    # if platform.system() == "Windows":
-    #     base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    if platform.system() == "Windows":
+        import os
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    else:
+        base = Path.home() / ".config"
     
     d = base / APP_DIR_NAME
     d.mkdir(parents=True, exist_ok=True)

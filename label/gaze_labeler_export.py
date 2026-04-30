@@ -331,8 +331,11 @@ def get_export_path_for_trial(
     >>> get_export_path_for_trial("data.kinarm", 3, 7, 1, "npz")
     '/home/user/Desktop/gaze_labels/data.kinarm/npz/Trial3.TP7.C1.npz'
     """
-    # Default output location: Desktop/gaze_labels
-    output_root = Path(output_root) if output_root is not None else (Path.home() / "Desktop" / "gaze_labels")
+    if output_root is not None:
+        output_root = Path(output_root)
+    else:
+        desktop = Path.home() / "Desktop"
+        output_root = desktop / "gaze_labels" if desktop.exists() else Path.home() / "gaze_labels"
     
     # Create subdirectory named after the KINARM file
     kinarm_name_with_ext = Path(kinarm_path).name
@@ -861,7 +864,7 @@ def run_labeling_process(
         }
 
         # Write CSV
-        with open(csv_filename, "w", newline="") as f:
+        with open(csv_filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(headers)
 
