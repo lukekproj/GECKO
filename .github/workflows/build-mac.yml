@@ -1,0 +1,36 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build .app
+        run: |
+          cd src
+          pyinstaller GECKO_mac.spec
+
+      - name: Zip .app
+        run: |
+          cd src/dist
+          zip -r GECKO_v1.5.1_mac.zip GECKO.app
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.5.1
+          files: src/dist/GECKO_v1.5.1_mac.zip
