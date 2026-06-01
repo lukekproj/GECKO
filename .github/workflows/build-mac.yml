@@ -32,4 +32,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.5.1
-          files: src/dist/GECKO_v1.5.1_mac.zip
+          files: dist/GECKO_v1.5.1_mac.zip
