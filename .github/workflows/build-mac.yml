@@ -21,12 +21,11 @@ jobs:
 
       - name: Build .app
         run: |
-          cd src
           pyinstaller GECKO_mac.spec
 
       - name: Zip .app
         run: |
-          cd src/dist
+          cd dist
           zip -r GECKO_v1.5.1_mac.zip GECKO.app
 
       - name: Upload to release
