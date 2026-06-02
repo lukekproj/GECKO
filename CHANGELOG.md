@@ -10,6 +10,7 @@
 - Fix hardcoded KINARM sentinel threshold in gaze labeler export to respect config
 - Fix lowpass_filter() to use trial frame rate instead of hardcoded 1000 Hz default
 - Fix labeler channel pre-selection exceeding MAX_LABELER_CHANNELS cap
+- - Fix labeler truncating trials longer than 5000 frames (closes #21)
 
 ### Build
 - Switch PyInstaller build to onedir for faster startup and config file accessibility
@@ -17,6 +18,7 @@
 ### Internal
 - Remove unused DEFAULT_GAZE_SAMPLING_HZ constant
 - Update help text to list all 4 Clear Cache options
+- Add x/y axis labels to channel inspect plot
 
 ## v1.5.1 - 2026-05-07
 - Fixed interpolation window crash
