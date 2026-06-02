@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.5.2 - 2026-06-02
+### Configuration
+- Add external config.json for lab-configurable parameters (filter cutoffs, eye height, FVR threshold, etc.)
+- Edit values next to GECKO.exe to override defaults without touching source code
+
+### Bug Fixes
+- Fix hardcoded filter cutoff (20 Hz) in gaze labeler export to respect config
+- Fix hardcoded KINARM sentinel threshold in gaze labeler export to respect config
+- Fix lowpass_filter() to use trial frame rate instead of hardcoded 1000 Hz default
+- Fix labeler channel pre-selection exceeding MAX_LABELER_CHANNELS cap
+
+### Build
+- Switch PyInstaller build to onedir for faster startup and config file accessibility
+
+### Internal
+- Remove unused DEFAULT_GAZE_SAMPLING_HZ constant
+- Update help text to list all 4 Clear Cache options
+
 ## v1.5.1 - 2026-05-07
 - Fixed interpolation window crash
 - Added warning when selecting 4+ channels to inspect
