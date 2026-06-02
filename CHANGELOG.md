@@ -10,7 +10,7 @@
 - Fix hardcoded KINARM sentinel threshold in gaze labeler export to respect config
 - Fix lowpass_filter() to use trial frame rate instead of hardcoded 1000 Hz default
 - Fix labeler channel pre-selection exceeding MAX_LABELER_CHANNELS cap
-- - Fix labeler truncating trials longer than 5000 frames (closes #21)
+- Fix labeler truncating trials longer than 5000 frames (closes #21)
 
 ### Build
 - Switch PyInstaller build to onedir for faster startup and config file accessibility
