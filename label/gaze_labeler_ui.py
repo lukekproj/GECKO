@@ -140,7 +140,7 @@ class GazeLabeler:
     # Data Optimization
     # -------------------------------------------------------------------------
 
-    def optimize_plot_data(self, gaze_x, gaze_y, overlay_channels, max_points=5000):
+    def optimize_plot_data(self, gaze_x, gaze_y, overlay_channels, max_points=None):
         """
         Reduce data density for faster, more responsive plotting.
         
@@ -175,6 +175,9 @@ class GazeLabeler:
         - This only affects display; full data is used for export
         - Typical trials: 1000-5000 frames → display ~5000 points
         """
+        if max_points is None:
+            max_points = max(5000, len(gaze_x))
+
         # Skip optimization if data is already small enough
         if len(gaze_x) <= max_points:
             return gaze_x, gaze_y, overlay_channels
