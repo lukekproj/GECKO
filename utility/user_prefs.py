@@ -51,6 +51,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 import platform
+import sys, os
 
 # Matplotlib backend for all GUI plotting.
 # Requires PyQt5. Change to "TkAgg" if PyQt5 is unavailable.
@@ -77,7 +78,6 @@ KINARM_INVALID_ABS_THRESHOLD = 99.9     # |value| >= this treated as invalid (Na
 # Uses a Butterworth filter with filtfilt (zero-phase, forward-backward pass).
 # The effective order is double what's specified here due to filtfilt.
 DEFAULT_GAZE_LOWPASS_CUTOFF_HZ = 20            # Cutoff frequency (Hz)
-DEFAULT_GAZE_SAMPLING_HZ = 1000                  # Sampling Frequency (Hz)
 DEFAULT_GAZE_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
 
 # --- Savitzky-Golay Filter (Angular Velocity Derivatives) ---
@@ -102,6 +102,47 @@ MAX_LABELER_CHANNELS = 6
 
 DEFAULT_TIMESTAMP_SPACING_S = 0.001  # 1ms default for typical KINARM data
 
+_VALID_CONFIG_KEYS = {
+    "KINARM_INVALID_ABS_THRESHOLD",
+    "DEFAULT_GAZE_LOWPASS_CUTOFF_HZ",
+    "DEFAULT_GAZE_LOWPASS_ORDER",
+    "DEFAULT_SAVGOL_WINDOW",
+    "DEFAULT_SAVGOL_POLYORDER",
+    "DEFAULT_EYE_HEIGHT_M",
+    "DEFAULT_VISUAL_ANGLE_DEG",
+    "AUTO_INTERP_THRESHOLD_FRAMES",
+    "SACCADIC_TRANSITION_FRACTION",
+    "SACCADIC_SIGMOID_STEEPNESS",
+    "MAX_LABELER_CHANNELS",
+    "DEFAULT_TIMESTAMP_SPACING_S",
+}
+
+def _exe_dir() -> Path:
+    """Return the directory containing the exe (frozen) or this source file."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent
+
+def _load_config() -> None:
+    """
+    Load config.json from the exe/source directory and override module-level
+    constants. Only keys in _VALID_CONFIG_KEYS are accepted. Silently skips
+    missing file, invalid JSON, or unrecognized keys.
+    """
+    config_path = _exe_dir() / "config.json"
+    if not config_path.exists():
+        return
+    try:
+        overrides = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    current_module = sys.modules[__name__]
+    for key, value in overrides.items():
+        if key in _VALID_CONFIG_KEYS:
+            setattr(current_module, key, value)
+
+_load_config() 
+
 def _app_dir() -> Path:
     """
     Get the application's configuration directory.
@@ -123,7 +164,6 @@ def _app_dir() -> Path:
     - Parent directories are created if needed (parents=True)
     """
     if platform.system() == "Windows":
-        import os
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
     else:
         base = Path.home() / ".config"

@@ -69,7 +69,7 @@ class GazeLabelerController:
                  font=app.bold_font).pack(padx=12, pady=(12, 4))
 
         max_extra = MAX_LABELER_CHANNELS - 2
-        tk.Label(win, text=f"Select up to {max_extra} additional channels to overlay:",
+        tk.Label(win, text=f"Select up to {max_extra} additional channels to overlay (excluding Gaze_X and Gaze_Y):",
                  ).pack(padx=12, pady=(0, 8))
 
         frame = tk.Frame(win)
@@ -88,9 +88,11 @@ class GazeLabelerController:
 
         saved = get_labeler_channel_defaults()
         defaults = saved if saved else ["xT", "yT"]
+        auto_selected = 0
         for i in range(listbox.size()):
-            if listbox.get(i) in defaults:
+            if listbox.get(i) in defaults and auto_selected < max_extra:
                 listbox.selection_set(i)
+                auto_selected += 1
 
         count_label = tk.Label(win, text="")
         count_label.pack(padx=12)

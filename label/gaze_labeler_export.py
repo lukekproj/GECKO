@@ -58,14 +58,12 @@ import pandas as pd
 
 from data.exam_load import ExamLoad
 from label.gaze_labeler_ui import GazeLabeler
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 
 
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
-
-# KINARM uses sentinel values (e.g., ±99.9) to mark invalid samples (blinks, tracking loss)
-KINARM_INVALID_ABS_THRESHOLD = 99.9
 
 # Alias mapping for backward compatibility and user-friendly names
 GAZE_METRIC_ALIASES = {
@@ -250,8 +248,8 @@ def compute_metrics_for_export(
         gy = _fill_nans_linear(clean_kinarm_signal(gaze_y))
 
         # Apply same 20 Hz low-pass filter used in GUI calculations
-        gx = explorer.lowpass_filter(gx, cutoff=20, fs=frame_rate)
-        gy = explorer.lowpass_filter(gy, cutoff=20, fs=frame_rate)
+        gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
+        gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate)
 
         calc = explorer.gaze_calculator
 

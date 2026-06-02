@@ -23,7 +23,8 @@ from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD
 from utility.user_prefs import (
     SACCADIC_TRANSITION_FRACTION, 
     SACCADIC_SIGMOID_STEEPNESS,
-    DEFAULT_TIMESTAMP_SPACING_S
+    DEFAULT_TIMESTAMP_SPACING_S,
+    AUTO_INTERP_THRESHOLD_FRAMES
 )
 
 @dataclass(frozen=True)
@@ -480,7 +481,7 @@ def _choose_large_gap_strategy(
         return None
     return user_decision["action"]
 
-def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 50, force_prompt: bool = False, trial_info: Optional[str] = None):
+def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = AUTO_INTERP_THRESHOLD_FRAMES, force_prompt: bool = False, trial_info: Optional[str] = None):
     """
     Interpolate missing samples for multiple channels in the current trial.
 

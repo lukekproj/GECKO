@@ -34,7 +34,6 @@ from data.data_calculations import (
 )
 from utility.user_prefs import (
     DEFAULT_GAZE_LOWPASS_ORDER,
-    DEFAULT_GAZE_SAMPLING_HZ,
     DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 )
 from dataclasses import dataclass
@@ -184,7 +183,7 @@ class KinarmDataExplorer:
         interpolated = smart_interpolate_trial_data(self, gaze_channels)
         return interpolated
 
-    def lowpass_filter(self, data, cutoff: float = DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs: float = DEFAULT_GAZE_SAMPLING_HZ, order: int = DEFAULT_GAZE_LOWPASS_ORDER) -> np.ndarray:
+    def lowpass_filter(self, data, cutoff: float = DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs: float = None, order: int = DEFAULT_GAZE_LOWPASS_ORDER) -> np.ndarray:
         """
         Apply a low-pass Butterworth filter to reduce high-frequency noise.
 
@@ -209,6 +208,9 @@ class KinarmDataExplorer:
         np.ndarray
             Filtered signal (same length).
         """
+        if fs is None:
+            fs = float(self.current_trial.frame_rate) if self.current_trial else 1000.0
+
         data_clean = np.asarray(data, dtype=float)
         nan_mask = np.isnan(data_clean)
 

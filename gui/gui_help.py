@@ -215,7 +215,7 @@ class HelpWindow:
             "• Foveal Visual Radius: Computes foveal visual radius.\n"
             "• Label Events: Launches interactive labeling tool.\n"
             "• Show Parameters: Opens Task Protocol and Target tables for the file.\n"
-            "• Clear Cache: Offers ability to clear stored data such as interpolation selections, labelling order, and saved session states. Resetting one of these will prompt the respective option when necessary, like the first time it was set.\n\n"
+            "• Clear Cache: Offers ability to clear stored data such as interpolation selections, labelling order, labeler channel selection, and saved session states. Resetting one of these will prompt the respective option when necessary, like the first time it was set.\n\n"
 
             "Configuration vs Data\n"
             "• user_prefs.json (per-user): Stores personal application settings such as save location "
