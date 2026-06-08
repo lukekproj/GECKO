@@ -574,9 +574,19 @@ class GazeLabeler:
         # Set up efficient rendering with blitting
         fig.canvas.draw()
         fig.canvas.flush_events()  # Process maximize event
-        background = fig.canvas.copy_from_bbox(ax.bbox)
+        background = fig.canvas.copy_from_bbox(ax.bbox) 
         selection_artists = []
         current_line_artist = None
+
+        def on_resize(event):
+            nonlocal background
+
+            background = None
+            fig.canvas.draw()
+            background = fig.canvas.copy_from_bbox(ax.bbox)
+            redraw_traditional()
+
+        fig.canvas.mpl_connect("resize_event", on_resize)
 
         # ---------------------------------------------------------------------
         # Helper Functions for Rendering
@@ -605,6 +615,8 @@ class GazeLabeler:
             
             if background is None:
                 redraw_traditional()
+                fig.canvas.draw()
+                background = fig.canvas.copy_from_bbox(ax.bbox)
                 return
             
             try:
@@ -661,7 +673,7 @@ class GazeLabeler:
             fig.canvas.draw_idle()
 
         # Use fast redraw by default
-        redraw = redraw_fast
+        redraw = redraw_traditional
 
         # ---------------------------------------------------------------------
         # Event Handlers
@@ -802,7 +814,6 @@ class GazeLabeler:
         fig.canvas.mpl_connect('button_press_event', on_click)
         fig.canvas.mpl_connect('motion_notify_event', on_hover)
         fig.canvas.mpl_connect('close_event', on_close)
-
         # ---------------------------------------------------------------------
         # Create Buttons
         # ---------------------------------------------------------------------
