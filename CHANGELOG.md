@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.5.3 - 2026-06-08
+### Bug Fixes
+- Fix duplicated/zoomed plot appearance when resizing labeler window
+- Fix stale rendering artifacts during interactive labeling
+- Fix undo operations leaving visual spans on canvas
+- Rebuild plot background after resize events
+- Improve canvas redraw behavior during labeling interactions
+
 ## v1.5.2 - 2026-06-02
 ### Configuration
 - Add external config.json for lab-configurable parameters (filter cutoffs, eye height, FVR threshold, etc.)
