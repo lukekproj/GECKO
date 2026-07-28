@@ -4,54 +4,37 @@ KINARM Data Explorer - Main GUI Application
 This is the primary interface for loading KINARM data files, selecting trials,
 inspecting channels, and performing gaze analysis.
 
-Dependencies: tkinter, KinarmDataExplorer, matplotlib
+Dependencies: tkinter, KinarmDataExplorer, matplotlib, numpy, pandas
 """
-# Standard library
 from pathlib import Path
-import platform
 import sys
 
-# Add src directory to Python path — must precede all local imports
+# Add src directory to Python path
 src_path = Path(__file__).parent.parent
 sys.path.insert(0, str(src_path))
 
-# Standard library — GUI
+# Imports
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from data.data_loader import KinarmDataExplorer
+from gui.gui_help import HelpWindow
+from gui.gui_session import SessionManager
+from utility.user_prefs import get_label_order, set_label_order, get_export_defaults, get_marker_defaults, get_save_location, set_save_location, MAX_LABELER_CHANNELS, get_labeler_channel_defaults, set_labeler_channel_defaults
 
-# Local — imported before matplotlib to configure backend
-from utility.user_prefs import (
-    get_export_defaults,
-    get_marker_defaults,
-    get_save_location,
-    set_save_location,
-    set_labeler_channel_defaults,
-    MPL_BACKEND,
-)
-
-# Third-party — backend must be set before pyplot import
-import matplotlib
+import matplotlib 
+import platform
+from utility.user_prefs import MPL_BACKEND
 matplotlib.use(MPL_BACKEND)
 import matplotlib.pyplot as plt
 
-# Local — data
-from data.data_loader import KinarmDataExplorer
-
-# Local — utility
+from gui.gui_metadata_viewer import TaskProtocolWindow
 from utility.kinarm_utils import find_trial_tp_number
-
-# Local — gui
-from gui.gui_utils import (
-    apply_dpi_scaling, 
-    center_window, 
-    configure_big_treeview_style, 
-    log_crash
-)
-from gui.gui_session import SessionManager
-from gui.gui_help import HelpWindow
+from gui.gui_utils import center_window, configure_big_treeview_style, log_crash
+sys.excepthook = log_crash
 from gui.gui_trial_panel import TrialPanel
 from gui.gui_channel_panel import ChannelPanel
 from gui.gui_export_panel import ExportPanel
+from gui.gui_labeler import GazeLabelerController
 
 class KinarmDataExplorerGUI:
     """
@@ -96,8 +79,10 @@ class KinarmDataExplorerGUI:
         self._sticky_marker_selection = set(get_marker_defaults())
         self._populating_export = False
         self._populating = False                    # Flag to prevent callback loops
+        self._open_figures = []
         self._trial_marks = {}  # Store trial quality marks
-        self.available_events = []        
+        self.available_events = []
+    
         self.custom_save_location = get_save_location()
         self._sticky_channel_selection = set()
         self._populating_channels = False
@@ -167,6 +152,9 @@ class KinarmDataExplorerGUI:
                 except Exception:
                     pass
             
+            # Clear any remaining references
+            self._open_figures.clear()
+            
         except Exception as e:
             print(f"Cleanup error: {e}")
         finally:
@@ -197,6 +185,7 @@ class KinarmDataExplorerGUI:
         self.custom_save_location = None
         
         # Clear from preferences file
+        from utility.user_prefs import set_save_location
         set_save_location(None)
         
         # Update status display
@@ -220,6 +209,7 @@ class KinarmDataExplorerGUI:
         if directory:
             self.custom_save_location = directory
             # Save to preferences file
+            from utility.user_prefs import set_save_location
             set_save_location(directory)
             
             self.status_var.set(f"Selected Save Location: {directory}")
@@ -307,8 +297,8 @@ class KinarmDataExplorerGUI:
         self.status_label = tk.Label(
             parent,
             textvariable=self.status_var,
-            font=self.bold_font,
-            anchor="w"
+            font=self.bold_font,  # Match first bar
+            anchor="w"  # Remove bg, relief, padx, pady
         )
         self.status_label.pack(fill=tk.X, padx=6, pady=(0, 8))
 
@@ -508,6 +498,7 @@ class KinarmDataExplorerGUI:
 
             # Extract trial name from numbered list entry
             index = sel[0]
+            # Use index to get the actual trial name from explorer
             name = self.explorer.trial_names[index]
 
             if self.current_trial and self.current_trial.name == name:
@@ -671,10 +662,39 @@ class KinarmDataExplorerGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Could not open Task Protocol viewer:\n{e}")
 
+# =============================================================================
 # MAIN ENTRY POINT
+# =============================================================================
+
 def main():
     root = tk.Tk()
-    apply_dpi_scaling(root)
+
+    # Fix DPI scaling for high-resolution displays (Windows/macOS/Linux)
+    try:
+        # macOS Retina
+        if root.tk.call("tk", "windowingsystem") == "aqua":
+            root.tk.call('tk', 'scaling', 2.0)
+
+        # Windows High-DPI laptops
+        elif root.tk.call("tk", "windowingsystem") == "win32":
+            # Auto-scale based on system DPI
+            import ctypes
+            try:
+                user32 = ctypes.windll.user32
+                user32.SetProcessDPIAware()
+                dpi = user32.GetDpiForSystem()
+                root.tk.call('tk', 'scaling', dpi / 72.0)
+            except Exception:
+                # Fallback if DPI read fails
+                root.tk.call('tk', 'scaling', 1.5)
+
+        # Linux scaling (optional)
+        elif root.tk.call("tk", "windowingsystem") == "x11":
+            root.tk.call('tk', 'scaling', 1.5)
+
+    except Exception:
+        pass
+
     app = KinarmDataExplorerGUI(root)
     root.mainloop()
 
