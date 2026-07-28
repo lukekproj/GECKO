@@ -43,11 +43,6 @@ from collections import OrderedDict
 from array import array
 import pandas as pd
 
-
-# -----------------------------------------------------------------------------
-# Type Conversion
-# -----------------------------------------------------------------------------
-
 def to_list(v):
     """
     Convert various data types to standard Python lists.
@@ -83,11 +78,6 @@ def to_list(v):
         return list(v)
     else:
         return [v]
-
-
-# -----------------------------------------------------------------------------
-# Parameter Extraction
-# -----------------------------------------------------------------------------
 
 def extract_group(trial, group_name):
     """
@@ -177,11 +167,6 @@ def get_ci_key(d, key):
             return k
     
     return None
-
-
-# -----------------------------------------------------------------------------
-# Table Row Detection
-# -----------------------------------------------------------------------------
 
 def infer_used_rows(cols):
     """
@@ -314,11 +299,6 @@ def infer_tp_rows_from_start(cols, fallback_keys):
     
     return max(lengths) if lengths else 0
 
-
-# -----------------------------------------------------------------------------
-# Table Normalization
-# -----------------------------------------------------------------------------
-
 def normalize_table(cols, desired_cols, rows, left_label_prefix=None):
     """
     Convert raw parameter data into a properly formatted pandas DataFrame.
@@ -390,11 +370,6 @@ def normalize_table(cols, desired_cols, rows, left_label_prefix=None):
         table[display_name] = vals[:rows]
     
     return pd.DataFrame(table)
-
-
-# -----------------------------------------------------------------------------
-# Trial Metadata Extraction
-# -----------------------------------------------------------------------------
 
 def find_trial_tp_number(trial):
     """

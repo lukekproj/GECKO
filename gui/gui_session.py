@@ -41,7 +41,8 @@ class SessionManager:
         Returns the current save location string (or None for default).
     """
 
-    DEFAULT_SAVE_DIR = Path.home() / "Desktop" / "gaze_labels"
+    _desktop = Path.home() / "Desktop"
+    DEFAULT_SAVE_DIR = _desktop / "gaze_labels" if _desktop.exists() else Path.home() / "gaze_labels"
 
     def __init__(self, get_explorer, get_save_location):
         self._get_explorer = get_explorer
@@ -270,7 +271,7 @@ class SessionManager:
                 })
 
             df = pd.DataFrame(rows)
-            df.to_csv(csv_path, index=False)
+            df.to_csv(csv_path, index=False, encoding="utf-8")
             print(f"Saved trial notes to: {csv_path}")
 
         except Exception as e:

@@ -52,10 +52,6 @@ from gui.gui_help import HelpWindow
 from gui.gui_trial_panel import TrialPanel
 from gui.gui_channel_panel import ChannelPanel
 from gui.gui_export_panel import ExportPanel
-from gui.gui_labeler import GazeLabelerController
-from gui.gui_metadata_viewer import TaskProtocolWindow
-
-sys.excepthook = log_crash
 
 class KinarmDataExplorerGUI:
     """
@@ -74,7 +70,10 @@ class KinarmDataExplorerGUI:
         if platform.system() == "Windows":
             self.default_font = ("Segoe UI", 12)
             self.bold_font = ("Segoe UI", 12, "bold")
-        else:  # Mac/Linux
+        elif platform.system() == "Linux":
+            self.default_font = ("DejaVu Sans", 12)
+            self.bold_font = ("DejaVu Sans", 12, "bold")
+        else:  # Mac
             self.default_font = ("Helvetica", 12)
             self.bold_font = ("Helvetica", 12, "bold")
 
@@ -201,7 +200,8 @@ class KinarmDataExplorerGUI:
         set_save_location(None)
         
         # Update status display
-        default_loc = str(Path.home() / "Desktop" / "gaze_labels")
+        desktop = Path.home() / "Desktop"
+        default_loc = str(desktop / "gaze_labels" if desktop.exists() else Path.home() / "gaze_labels")
         self.status_var.set(f"Selected Save Location: {default_loc} (Default)")
         
         messagebox.showinfo(
@@ -214,7 +214,7 @@ class KinarmDataExplorerGUI:
         """Allow user to select custom save location for gaze labels."""
         directory = filedialog.askdirectory(
             title="Select Save Location for Gaze Labels",
-            initialdir=self.custom_save_location or str(Path.home() / "Desktop")
+            initialdir=self.custom_save_location or str(Path.home() / "Desktop" if (Path.home() / "Desktop").exists() else Path.home())
         )
         
         if directory:

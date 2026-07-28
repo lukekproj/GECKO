@@ -48,12 +48,7 @@ class GazeLabelerController:
         """
         Open a dialog for the user to select which channels to display
         in the gaze labeler. Gaze_X and Gaze_Y are required and locked.
-
-        Returns
-        -------
-        list[str] or None
-            Selected channel names (always starting with Gaze_X, Gaze_Y),
-            or None if the user cancelled.
+        Returns a list of channel names or None if cancelled.
         """
         app = self.app
         trial = app.current_trial
@@ -70,17 +65,12 @@ class GazeLabelerController:
         win.resizable(False, True)
         win.grab_set()
 
-        tk.Label(
-            win,
-            text="Gaze_X and Gaze_Y are always included.",
-            font=app.bold_font,
-        ).pack(padx=12, pady=(12, 4))
+        tk.Label(win, text="Gaze_X and Gaze_Y are always included.",
+                 font=app.bold_font).pack(padx=12, pady=(12, 4))
 
         max_extra = MAX_LABELER_CHANNELS - 2
-        tk.Label(
-            win,
-            text=f"Select up to {max_extra} additional channels to overlay:",
-        ).pack(padx=12, pady=(0, 8))
+        tk.Label(win, text=f"Select up to {max_extra} additional channels to overlay (excluding Gaze_X and Gaze_Y):",
+                 ).pack(padx=12, pady=(0, 8))
 
         frame = tk.Frame(win)
         frame.pack(padx=12, pady=(0, 8), fill=tk.BOTH, expand=True)
@@ -88,13 +78,8 @@ class GazeLabelerController:
         scrollbar = tk.Scrollbar(frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        listbox = tk.Listbox(
-            frame,
-            selectmode=tk.MULTIPLE,
-            width=40,
-            height=15,
-            yscrollcommand=scrollbar.set,
-        )
+        listbox = tk.Listbox(frame, selectmode=tk.MULTIPLE, width=40, height=15,
+                             yscrollcommand=scrollbar.set)
         listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=listbox.yview)
 
@@ -103,9 +88,11 @@ class GazeLabelerController:
 
         saved = get_labeler_channel_defaults()
         defaults = saved if saved else ["xT", "yT"]
+        auto_selected = 0
         for i in range(listbox.size()):
-            if listbox.get(i) in defaults:
+            if listbox.get(i) in defaults and auto_selected < max_extra:
                 listbox.selection_set(i)
+                auto_selected += 1
 
         count_label = tk.Label(win, text="")
         count_label.pack(padx=12)
@@ -113,7 +100,10 @@ class GazeLabelerController:
         def update_count(event=None):
             n = len(listbox.curselection())
             count_label.config(text=f"{n}/{max_extra} additional channels selected")
-            count_label.config(fg="red" if n > max_extra else "black")
+            if n > max_extra:
+                count_label.config(fg="red")
+            else:
+                count_label.config(fg="black")
 
         listbox.bind("<<ListboxSelect>>", update_count)
         update_count()
@@ -124,11 +114,9 @@ class GazeLabelerController:
         def on_ok():
             selected = [listbox.get(i) for i in listbox.curselection()]
             if len(selected) > max_extra:
-                messagebox.showwarning(
-                    "Too Many Channels",
+                messagebox.showwarning("Too Many Channels",
                     f"Please select at most {max_extra} additional channels.",
-                    parent=win,
-                )
+                    parent=win)
                 return
             set_labeler_channel_defaults(selected)
             result["channels"] = ["Gaze_X", "Gaze_Y"] + selected
@@ -147,9 +135,10 @@ class GazeLabelerController:
         """
         Launch the interactive gaze labeling tool with multi-trial support.
 
-        Opens the GazeLabeler interface for manually labeling fixations,
-        pursuits, and saccades. Exports results alongside selected channels.
-        Advances to the next trial automatically if the user requests it.
+        This opens the GazeLabeler interface where users can manually
+        label time periods as fixations, pursuits, or saccades.
+        The results are saved along with selected export channels.
+        Users can choose to continue to the next trial automatically.
         """
         from label.gaze_labeler_export import run_labeling_process
 
@@ -161,7 +150,6 @@ class GazeLabelerController:
                 messagebox.showwarning("No Trial", "Please select a trial first.")
                 return
 
-            # Resolve labeler channels — use saved preference or prompt
             saved = get_labeler_channel_defaults()
             if saved:
                 valid = [ch for ch in saved if ch in trial.kinematics]
@@ -172,31 +160,44 @@ class GazeLabelerController:
                     return
 
             while trial is not None:
-                interpolated_data = app.explorer.get_interpolated_gaze_data(labeler_channels)
+                # Resolve export selections first so they're available for upfront interpolation
+                ui_selections = [app.export_listbox.get(i) for i in app.export_listbox.curselection()]
+                if not ui_selections and app._sticky_export_selection:
+                    all_selections = list(app._sticky_export_selection)
+                else:
+                    all_selections = ui_selections
+
+                selected_export_channels = []
+                selected_events = []
+                for item in all_selections:
+                    if item in app.available_events:
+                        selected_events.append(item)
+                    else:
+                        selected_export_channels.append(item)
+
+                # Interpolate overlay and export channels upfront so all
+                # interpolation prompts appear before the labeler opens.
+                all_channels_to_interpolate = list(labeler_channels)
+                for ch in selected_export_channels:
+                    if ch not in all_channels_to_interpolate and ch in app.current_trial.kinematics:
+                        all_channels_to_interpolate.append(ch)
+
+                interpolated_data = app.explorer.get_interpolated_gaze_data(all_channels_to_interpolate)
                 if interpolated_data is None:
                     return
 
                 gaze_x = interpolated_data["Gaze_X"]
                 gaze_y = interpolated_data["Gaze_Y"]
-                overlay_channels = {
-                    k: v for k, v in interpolated_data.items()
-                    if k not in ("Gaze_X", "Gaze_Y")
-                }
+                # Only include channels selected for overlay display, not export-only channels
+                overlay_channels = {k: v for k, v in interpolated_data.items()
+                                    if k in labeler_channels and k not in ("Gaze_X", "Gaze_Y")}
 
-                # Resolve export selections, falling back to sticky state if listbox lost selection
-                ui_selections = [app.export_listbox.get(i) for i in app.export_listbox.curselection()]
-                all_selections = ui_selections if ui_selections else list(app._sticky_export_selection)
+                trial_index = None
+                for idx, name in enumerate(app.explorer.trial_names):
+                    if name == trial.name:
+                        trial_index = idx + 1
+                        break
 
-                selected_export_channels = [s for s in all_selections if s not in app.available_events]
-                selected_events = [s for s in all_selections if s in app.available_events]
-
-                # Build 1-based trial index
-                trial_index = next(
-                    (i + 1 for i, n in enumerate(app.explorer.trial_names) if n == trial.name),
-                    None,
-                )
-
-                # Build trial info string for labeler window title
                 tp_num = find_trial_tp_number(trial)
                 tp_text = f"TP #{tp_num}" if tp_num is not None else "TP #(unknown)"
                 frames = trial.frame_count
@@ -213,16 +214,13 @@ class GazeLabelerController:
                     f"{frames} frames @ {rate:.2f} Hz (~{duration:.2f}s)"
                 )
 
-                selected_markers = [
-                    app.marker_listbox.get(i) for i in app.marker_listbox.curselection()
-                ]
+                selected_markers = [app.marker_listbox.get(i) for i in app.marker_listbox.curselection()]
                 label_order = get_label_order()
 
                 action, labeler = run_labeling_process(
                     app.explorer,
                     trial.name,
-                    gaze_x,
-                    gaze_y,
+                    gaze_x, gaze_y,
                     overlay_channels,
                     selected_export_channels,
                     kinarm_path=app.explorer.filepath,
@@ -251,10 +249,11 @@ class GazeLabelerController:
                 )
 
                 if action == "next_trial":
-                    current_index = next(
-                        (i for i, n in enumerate(app.explorer.trial_names) if n == trial.name),
-                        None,
-                    )
+                    current_index = None
+                    for idx, name in enumerate(app.explorer.trial_names):
+                        if name == trial.name:
+                            current_index = idx
+                            break
                     if current_index is not None and current_index + 1 < len(app.explorer.trial_names):
                         app.trial_listbox.selection_clear(0, tk.END)
                         app.trial_listbox.selection_set(current_index + 1)
@@ -265,7 +264,6 @@ class GazeLabelerController:
                     else:
                         messagebox.showinfo("Complete", "All trials labeled! That was the last trial.")
                         return
-
                 elif action == "accept":
                     messagebox.showinfo("Success", "Gaze labeling completed successfully!")
                     return

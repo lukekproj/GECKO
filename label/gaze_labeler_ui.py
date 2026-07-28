@@ -140,7 +140,11 @@ class GazeLabeler:
         self._prompt_for_order = (label_order is None)
         self.label_order = list(label_order) if label_order else None
 
-    def optimize_plot_data(self, gaze_x, gaze_y, overlay_channels, max_points=5000):
+    # -------------------------------------------------------------------------
+    # Data Optimization
+    # -------------------------------------------------------------------------
+
+    def optimize_plot_data(self, gaze_x, gaze_y, overlay_channels, max_points=None):
         """
         Reduce data density for faster, more responsive plotting.
         
@@ -176,6 +180,9 @@ class GazeLabeler:
         - This only affects display; full data is used for export
         - Typical trials: 1000-5000 frames → display ~5000 points
         """
+        if max_points is None:
+            max_points = max(5000, len(gaze_x))
+
         # Skip optimization if data is already small enough
         if len(gaze_x) <= max_points:
             return gaze_x, gaze_y, overlay_channels
@@ -389,7 +396,7 @@ class GazeLabeler:
         - Editing mode preserves other label types (shows as background)
         - "Next Trial" action automatically advances to next trial in GUI
         """
-        label_colors = {'fixation': 'green', 'pursuit': 'blue', 'saccade': 'red', 'other': 'orange'}
+        label_colors = {'fixation': 'green', 'pursuit': 'cornflowerblue', 'saccade': 'red', 'other': 'orange'}
         total_frames = len(self.gaze_x)
         initial_labeling_done = False
 
@@ -520,7 +527,10 @@ class GazeLabeler:
 
         # Create plot window
         fig, ax = plt.subplots(figsize=(12, 6))
-        fig.canvas.manager.window.showMaximized()
+        try:
+            fig.canvas.manager.window.showMaximized()
+        except AttributeError:
+            pass  # TkAgg or other backends don't support showMaximized
         plt.subplots_adjust(bottom=0.25, top=0.88)
 
         # Set banner text and color based on mode
@@ -564,14 +574,28 @@ class GazeLabeler:
         ax.set_xlabel("Frame")
         ax.set_ylabel("Distance (cm)")
         ax.grid(True)
-        ax.legend(loc='upper left')
+        ax.legend(loc='lower left')
 
         # Set up efficient rendering with blitting
         fig.canvas.draw()
         fig.canvas.flush_events()  # Process maximize event
-        background = fig.canvas.copy_from_bbox(ax.bbox)
+        background = fig.canvas.copy_from_bbox(ax.bbox) 
         selection_artists = []
         current_line_artist = None
+
+        def on_resize(event):
+            nonlocal background
+
+            background = None
+            fig.canvas.draw()
+            background = fig.canvas.copy_from_bbox(ax.bbox)
+            redraw_traditional()
+
+        fig.canvas.mpl_connect("resize_event", on_resize)
+
+        # ---------------------------------------------------------------------
+        # Helper Functions for Rendering
+        # ---------------------------------------------------------------------
 
         def _draw_current_spans(merged_ranges):
             """Render colored highlighting for selected time periods."""
@@ -596,6 +620,8 @@ class GazeLabeler:
             
             if background is None:
                 redraw_traditional()
+                fig.canvas.draw()
+                background = fig.canvas.copy_from_bbox(ax.bbox)
                 return
             
             try:
@@ -652,7 +678,7 @@ class GazeLabeler:
             fig.canvas.draw_idle()
 
         # Use fast redraw by default
-        redraw = redraw_fast
+        redraw = redraw_traditional
 
         def on_click(event):
             """Handle mouse clicks for time period selection."""
@@ -789,6 +815,9 @@ class GazeLabeler:
         fig.canvas.mpl_connect('button_press_event', on_click)
         fig.canvas.mpl_connect('motion_notify_event', on_hover)
         fig.canvas.mpl_connect('close_event', on_close)
+        # ---------------------------------------------------------------------
+        # Create Buttons
+        # ---------------------------------------------------------------------
 
         if is_editing:
             # Edit mode: Undo, Mark All, Erase, Clear, Finish, Cancel (centered - 6 buttons)
@@ -878,7 +907,7 @@ class GazeLabeler:
         - Color-coded buttons for editing each label type
         - "Mark as Bad Trial" toggle (changes export behavior)
         - "Save & Next Trial" for batch processing workflow
-        - "Accept & Finish" to complete labeling
+        - "Save & Finish" to complete labeling
         
         Button Behaviors
         ----------------
@@ -886,7 +915,7 @@ class GazeLabeler:
         - Restart All: Clear all labels and start over from fixation
         - Mark as Bad Trial: Toggle flag (affects export - all frames become code 9)
         - Save & Next: Accept current labels and automatically load next trial
-        - Accept & Finish: Accept current labels and return to main GUI
+        - Save & Finish: Accept current labels and return to main GUI
         
         Notes
         -----
@@ -896,7 +925,10 @@ class GazeLabeler:
         """
         # Create summary plot with space for buttons
         fig, ax = plt.subplots(figsize=(12, 7))
-        fig.canvas.manager.window.showMaximized()
+        try:
+            fig.canvas.manager.window.showMaximized()
+        except AttributeError:
+            pass  # TkAgg or other backends don't support showMaximized
         plt.subplots_adjust(bottom=0.15, top=0.88)
         
         # Add trial info banner at top
@@ -1011,12 +1043,12 @@ class GazeLabeler:
         
         # Create buttons with colors matching label types
         btn_fix = Button(ax_edit_fix, 'Edit\nFixation', color=label_colors['fixation'], hovercolor='lightgreen')
-        btn_pur = Button(ax_edit_pur, 'Edit\nPursuit', color=label_colors['pursuit'], hovercolor='lightblue')
+        btn_pur = Button(ax_edit_pur, 'Edit\nPursuit', color=label_colors['pursuit'], hovercolor='cornflowerblue')
         btn_sac = Button(ax_edit_sac, 'Edit\nSaccade', color=label_colors['saccade'], hovercolor='lightcoral')
         btn_other = Button(ax_edit_other, 'Edit\nOther', color=label_colors['other'], hovercolor='lightyellow')
         btn_restart = Button(ax_restart, 'Restart\nAll', color='lightgray', hovercolor='gray')
         btn_next = Button(ax_next, 'Save &\nNext Trial', color='lightyellow', hovercolor='yellow')
-        btn_accept = Button(ax_accept, 'Accept &\nFinish', color='lightgreen', hovercolor='green')
+        btn_accept = Button(ax_accept, 'Save &\nFinish', color='lightgreen', hovercolor='green')
         
         # Bad trial button appearance depends on current state
         if self.bad_trial:

@@ -50,6 +50,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import List, Dict, Any
+import platform
+import sys, os
 
 # Matplotlib backend for all GUI plotting.
 # Requires PyQt5. Change to "TkAgg" if PyQt5 is unavailable.
@@ -64,6 +66,7 @@ PREFS_FILE_NAME = "user_prefs.json"
 # =============================================================================
 # Lab-Configurable Processing Parameters
 # =============================================================================
+
 # These parameters control all signal processing in the application.
 # Labs should adjust these to match their KINARM setup and analysis pipeline.
 
@@ -76,13 +79,6 @@ KINARM_INVALID_ABS_THRESHOLD = 99.9     # |value| >= this treated as invalid (Na
 # The effective order is double what's specified here due to filtfilt.
 DEFAULT_GAZE_LOWPASS_CUTOFF_HZ = 20            # Cutoff frequency (Hz)
 DEFAULT_GAZE_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
-
-# --- Hand Kinematic Derived Channel Filter ---
-# Applied to velocity and acceleration channels computed from hand position.
-# Uses the same Butterworth + filtfilt approach as the gaze filter.
-HAND_LOWPASS_CUTOFF_HZ = 20           # Cutoff frequency (Hz)
-HAND_LOWPASS_SAMPLING_HZ = 1000        # Sampling Frequency (Hz)
-HAND_LOWPASS_ORDER = 4                  # Effective order (halved internally for filtfilt)
 
 # --- Savitzky-Golay Filter (Angular Velocity Derivatives) ---
 # Used to compute time derivatives of eye-centered Cartesian coordinates
@@ -106,9 +102,46 @@ MAX_LABELER_CHANNELS = 6
 
 DEFAULT_TIMESTAMP_SPACING_S = 0.001  # 1ms default for typical KINARM data
 
-# -----------------------------------------------------------------------------
-# Path Management
-# -----------------------------------------------------------------------------
+_VALID_CONFIG_KEYS = {
+    "KINARM_INVALID_ABS_THRESHOLD",
+    "DEFAULT_GAZE_LOWPASS_CUTOFF_HZ",
+    "DEFAULT_GAZE_LOWPASS_ORDER",
+    "DEFAULT_SAVGOL_WINDOW",
+    "DEFAULT_SAVGOL_POLYORDER",
+    "DEFAULT_EYE_HEIGHT_M",
+    "DEFAULT_VISUAL_ANGLE_DEG",
+    "AUTO_INTERP_THRESHOLD_FRAMES",
+    "SACCADIC_TRANSITION_FRACTION",
+    "SACCADIC_SIGMOID_STEEPNESS",
+    "MAX_LABELER_CHANNELS",
+    "DEFAULT_TIMESTAMP_SPACING_S",
+}
+
+def _exe_dir() -> Path:
+    """Return the directory containing the exe (frozen) or this source file."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent
+
+def _load_config() -> None:
+    """
+    Load config.json from the exe/source directory and override module-level
+    constants. Only keys in _VALID_CONFIG_KEYS are accepted. Silently skips
+    missing file, invalid JSON, or unrecognized keys.
+    """
+    config_path = _exe_dir() / "config.json"
+    if not config_path.exists():
+        return
+    try:
+        overrides = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    current_module = sys.modules[__name__]
+    for key, value in overrides.items():
+        if key in _VALID_CONFIG_KEYS:
+            setattr(current_module, key, value)
+
+_load_config() 
 
 def _app_dir() -> Path:
     """
@@ -130,12 +163,10 @@ def _app_dir() -> Path:
     - For Windows AppData/Roaming compliance, modify base path detection
     - Parent directories are created if needed (parents=True)
     """
-    # Use XDG-compliant config directory
-    base = Path.home() / ".config"
-    
-    # TODO: For Windows AppData compliance, detect platform and use:
-    # if platform.system() == "Windows":
-    #     base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    if platform.system() == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    else:
+        base = Path.home() / ".config"
     
     d = base / APP_DIR_NAME
     d.mkdir(parents=True, exist_ok=True)
@@ -157,11 +188,6 @@ def prefs_path() -> Path:
     PosixPath('/home/user/.config/KinarmDataExplorer/user_prefs.json')
     """
     return _app_dir() / PREFS_FILE_NAME
-
-
-# -----------------------------------------------------------------------------
-# Core Preferences I/O
-# -----------------------------------------------------------------------------
 
 def load_prefs() -> Dict[str, Any]:
     """
@@ -249,11 +275,6 @@ def save_prefs(prefs: Dict[str, Any]) -> None:
         # Write failed - silently continue
         # Could add logging here for debugging
         pass
-
-
-# -----------------------------------------------------------------------------
-# Preference-Specific Accessors
-# -----------------------------------------------------------------------------
 
 def get_export_defaults() -> List[str]:
     """
@@ -471,10 +492,6 @@ def set_save_location(location: str | None):
     else:
         prefs.pop("custom_save_location", None)
     save_prefs(prefs)
-
-# -------------------------------------------------------------------------
-# Label Order (Gaze Labeler)
-# -------------------------------------------------------------------------
 
 _DEFAULT_LABEL_ORDER = ["fixation", "pursuit", "saccade"]
 

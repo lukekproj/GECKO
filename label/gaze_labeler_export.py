@@ -60,33 +60,19 @@ import pandas as pd
 
 from data.exam_load import ExamLoad
 from label.gaze_labeler_ui import GazeLabeler
-from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 
-# Maps user-facing channel name variants to internal standardized metric keys.
-# Handles both display names and legacy names for backward compatibility.
-GAZE_METRIC_ALIASES: Dict[str, str] = {
-    "Angular Velocity": "Angular_Velocity",
-    "Angular Velocity (deg/s)": "Angular_Velocity",
-    "Angular_Velocity": "Angular_Velocity",
-    "FVR": "FVR (Foveal_Visual_Radius)",
-    "FVR (mm)": "FVR (Foveal_Visual_Radius)",
-    "FVR (Foveal_Visual_Radius)": "FVR (Foveal_Visual_Radius)",
-    "Rho": "Rho (Distance)",
-    "Rho (Distance)": "Rho (Distance)",
-    "Theta": "Theta (Azimuth)",
-    "Theta (Azimuth)": "Theta (Azimuth)",
-    "Phi": "Phi (Elevation)",
-    "Phi (Elevation)": "Phi (Elevation)",
-}
 
-# Per-frame integer codes written to the gaze_event column in exported CSVs.
-# Code 0 is also used for unlabeled frames and the "other" category.
-GAZE_EVENT_CODES: Dict[str, int] = {
-    "saccade": 1,
-    "pursuit": 2,
-    "fixation": 3,
-    "other": 0,
-}
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
+
+# KINARM uses sentinel values (e.g., ±99.9) to mark invalid samples (blinks, tracking loss)
+KINARM_INVALID_ABS_THRESHOLD = 99.9
+
+
+# -----------------------------------------------------------------------------
+# Data Cleaning Utilities
+# -----------------------------------------------------------------------------
 
 def clean_kinarm_signal(values: Any) -> np.ndarray:
     """
@@ -321,8 +307,11 @@ def get_export_path_for_trial(
     >>> get_export_path_for_trial("data.kinarm", 3, 7, 1, "npz")
     '/home/user/Desktop/gaze_labels/data.kinarm/npz/Trial3.TP7.C1.npz'
     """
-    # Default output location: Desktop/gaze_labels
-    output_root = Path(output_root) if output_root is not None else (Path.home() / "Desktop" / "gaze_labels")
+    if output_root is not None:
+        output_root = Path(output_root)
+    else:
+        desktop = Path.home() / "Desktop"
+        output_root = desktop / "gaze_labels" if desktop.exists() else Path.home() / "gaze_labels"
     
     # Create subdirectory named after the KINARM file
     kinarm_name_with_ext = Path(kinarm_path).name
@@ -632,12 +621,6 @@ def run_labeling_process(
         selected_events = selected_events or []
         selected_export_channels = selected_export_channels or []
 
-        # Clean raw inputs (convert KINARM sentinel values to NaN)
-        gaze_x = clean_kinarm_signal(gaze_x)
-        gaze_y = clean_kinarm_signal(gaze_y)
-        for k in overlay_channels:
-            overlay_channels[k] = clean_kinarm_signal(overlay_channels[k])
-
         # Extract repeat count from trial name (e.g., "TP1_2" → count=2)
         try:
             count = int(trial_name.split("_")[-1])
@@ -654,6 +637,10 @@ def run_labeling_process(
         # Normalize all metric arrays to trial length
         for k in list(gaze_metrics.keys()):
             gaze_metrics[k] = _force_len(gaze_metrics[k], N)
+
+        # ---------------------------------------------------------------------
+        # Extract TP number for file naming
+        # ---------------------------------------------------------------------
         
         tp_num = "NA"
         try:
@@ -676,7 +663,7 @@ def run_labeling_process(
         for ev in selected_events:
             matches = [e for e in trial.events if e.label.upper() == ev.upper()]
             if matches:
-                frames = [int(round(e.time * trial.frame_rate)) for e in matches]
+                frames = sorted([int(round(e.time * trial.frame_rate)) for e in matches])
                 event_frames[ev] = frames
 
         marker_events = marker_events or []
@@ -686,6 +673,10 @@ def run_labeling_process(
             matches = [e for e in trial.events if e.label.upper() == ev.upper()]
             if matches:
                 marker_frames[ev] = [int(round(e.time * trial.frame_rate)) for e in matches]
+
+        # ---------------------------------------------------------------------
+        # Launch manual labeling UI
+        # ---------------------------------------------------------------------
         
         labeler = GazeLabeler(
             trial_name,
@@ -806,7 +797,7 @@ def run_labeling_process(
         }
 
         # Write CSV
-        with open(csv_filename, "w", newline="") as f:
+        with open(csv_filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(headers)
 

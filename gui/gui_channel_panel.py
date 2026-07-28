@@ -208,14 +208,31 @@ class ChannelPanel:
                 channel_data_dict[ch] = processed_data
 
             num_plots = len(channel_data_dict)
+
+            if num_plots > 4:
+                proceed = messagebox.askyesno(
+                    "Large Selection",
+                    f"You selected {num_plots} channels. Plots may be difficult to read "
+                    f"with more than 4 channels. Continue anyway?" 
+                )
+                if not proceed:
+                    return
+
             fig, axs = plt.subplots(num_plots, 1, figsize=(10, 3 * num_plots), squeeze=False)
+            try:
+                fig.canvas.manager.window.showMaximized()
+            except AttributeError:
+                pass  # TkAgg or other backends don't support showMaximized
             self.app._open_figures.append(fig)
 
             for plot_idx, (ch, processed) in enumerate(channel_data_dict.items()):
                 axs[plot_idx][0].plot(processed, label="Processed", color="blue")
                 axs[plot_idx][0].set_title(f"{ch} (Plot)")
+                axs[plot_idx][0].set_ylabel("Value (raw units)")
                 axs[plot_idx][0].legend()
                 axs[plot_idx][0].grid(True)
+                if plot_idx == num_plots - 1:
+                    axs[plot_idx][0].set_xlabel("Frame")
 
             fig.tight_layout()
             plt.show(block=False)

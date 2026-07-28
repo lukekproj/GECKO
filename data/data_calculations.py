@@ -158,6 +158,11 @@ class GazeCalculator:
         denom_xyz = (x_eye**2 + y_eye**2 + z_eye**2)
         sqrt_xy = np.sqrt(denom_xy)
 
+        # Guard against division by zero at gaze singularities
+        denom_xy = np.where(denom_xy < np.finfo(float).eps, np.finfo(float).eps, denom_xy)
+        denom_xyz = np.where(denom_xyz < np.finfo(float).eps, np.finfo(float).eps, denom_xyz)
+        sqrt_xy = np.where(sqrt_xy < np.finfo(float).eps, np.finfo(float).eps, sqrt_xy)
+
         # Eq. (4a): elevation angle rate phi_dot (rad/s)
         numerator = (z_eye * (x_eye * x_dot + y_eye * y_dot) - denom_xy * z_dot)
         denominator = denom_xyz * sqrt_xy
@@ -251,8 +256,8 @@ def calculate_gaze_metrics(explorer) -> None:
     """
     Compute and plot rho/theta/phi for the selected trial.
 
-    Uses interpolated Gaze_X/Gaze_Y, applies a light low-pass filter, then
-    computes spherical coordinates in radians (rho in meters).
+    Gaze_X/Y are lowpass filtered at 20 Hz per Singh et al. before computing
+    spherical coordinates. Results are in radians (rho in meters).
     """
     if not explorer.current_trial:
         print("No trial selected!")
@@ -268,7 +273,7 @@ def calculate_gaze_metrics(explorer) -> None:
         gx = np.asarray(interpolated_data["Gaze_X"], dtype=float)
         gy = np.asarray(interpolated_data["Gaze_Y"], dtype=float)
 
-        # Optional smoothing before derivatives / angles
+        # Lowpass filter applied per Singh et al. preprocessing step before metric computation
         gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
         gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
 
@@ -301,7 +306,7 @@ def calculate_angular_velocity(explorer) -> None:
     """
     Compute and plot gaze angular velocity magnitude for the selected trial.
 
-    Expected ranges (prof reminder):
+    Expected ranges:
     - Smooth pursuit: ~10–100 deg/s
     - Saccades: ~100–1200 deg/s
     """
@@ -347,7 +352,7 @@ def calculate_fvr(explorer) -> None:
     NOTE: With Gaze_X/Y and eye height in meters, FVR is returned in meters.
     """
     if not explorer.current_trial:
-        print("No trial selected!")
+        print("No trial selected.")
         return
 
     try:
@@ -360,7 +365,7 @@ def calculate_fvr(explorer) -> None:
         gx = np.asarray(interpolated_data["Gaze_X"], dtype=float)
         gy = np.asarray(interpolated_data["Gaze_Y"], dtype=float)
 
-        # Optional smoothing (helps if epsilon gets noisy)
+        # Lowpass filter applied per Singh et al. preprocessing step before metric computation
         gx = explorer.lowpass_filter(gx, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
         gy = explorer.lowpass_filter(gy, cutoff=DEFAULT_GAZE_LOWPASS_CUTOFF_HZ, fs=frame_rate, order=DEFAULT_GAZE_LOWPASS_ORDER)
 

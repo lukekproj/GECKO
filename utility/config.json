@@ -1,0 +1,31 @@
+{
+  "_comment": "Optional configuration file for GECKO. Values here override built-in defaults. IMPORTANT: When updating to a new release, note down any custom values you have set here and re-apply them to the new config.json — releases always ship with default values. Delete this file to use all defaults.",
+
+  "_comments": {
+    "KINARM_INVALID_ABS_THRESHOLD": "Absolute threshold for treating a gaze value as invalid/missing (sentinel cleaning)",
+    "DEFAULT_GAZE_LOWPASS_CUTOFF_HZ": "Cutoff frequency for gaze low-pass filter in Hz",
+    "DEFAULT_GAZE_LOWPASS_ORDER": "Filter order (effective order is doubled internally by filtfilt)",
+    "DEFAULT_SAVGOL_WINDOW": "Savitzky-Golay window length in frames (must be odd)",
+    "DEFAULT_SAVGOL_POLYORDER": "Savitzky-Golay polynomial order for angular velocity derivatives",
+    "DEFAULT_EYE_HEIGHT_M": "Eye height above stimulus plane in meters",
+    "DEFAULT_VISUAL_ANGLE_DEG": "Foveal cone half-angle in degrees (FVR threshold)",
+    "AUTO_INTERP_THRESHOLD_FRAMES": "Gaps <= this many frames are auto-filled with linear interpolation",
+    "SACCADIC_TRANSITION_FRACTION": "Fraction of gap used for sigmoid blend in saccadic interpolation",
+    "SACCADIC_SIGMOID_STEEPNESS": "Sigmoid steepness for saccadic interpolation (higher = sharper)",
+    "MAX_LABELER_CHANNELS": "Maximum overlay channels shown in the gaze labeler including Gaze_X and Gaze_Y",
+    "DEFAULT_TIMESTAMP_SPACING_S": "Default timestamp spacing in seconds (1ms for typical 1000Hz KINARM data)"
+  },
+
+  "KINARM_INVALID_ABS_THRESHOLD": 99.9,
+  "DEFAULT_GAZE_LOWPASS_CUTOFF_HZ": 20,
+  "DEFAULT_GAZE_LOWPASS_ORDER": 4,
+  "DEFAULT_SAVGOL_WINDOW": 11,
+  "DEFAULT_SAVGOL_POLYORDER": 3,
+  "DEFAULT_EYE_HEIGHT_M": 0.2,
+  "DEFAULT_VISUAL_ANGLE_DEG": 5.0,
+  "AUTO_INTERP_THRESHOLD_FRAMES": 50,
+  "SACCADIC_TRANSITION_FRACTION": 0.2,
+  "SACCADIC_SIGMOID_STEEPNESS": 10.0,
+  "MAX_LABELER_CHANNELS": 6,
+  "DEFAULT_TIMESTAMP_SPACING_S": 0.001
+}
