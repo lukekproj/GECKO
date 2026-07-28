@@ -23,7 +23,8 @@ from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD
 from utility.user_prefs import (
     SACCADIC_TRANSITION_FRACTION, 
     SACCADIC_SIGMOID_STEEPNESS,
-    DEFAULT_TIMESTAMP_SPACING_S
+    DEFAULT_TIMESTAMP_SPACING_S,
+    AUTO_INTERP_THRESHOLD_FRAMES
 )
 
 @dataclass(frozen=True)
@@ -50,29 +51,34 @@ def _sanitize_kinarm_signal(values: np.ndarray) -> np.ndarray:
 def _should_sanitize_channel(channel_name: str) -> bool:
     """
     Determine if a channel should have sentinel values (±99.9) replaced with NaN.
-    
-    Returns False for channels where values > 99.9 are legitimate data.
-    
-    This uses substring matching (case-insensitive) to handle variations in naming
-    conventions across different labs and KINARM versions.
+
+    Only gaze position and pupil channels use KINARM's ±99.9 sentinel to mark
+    invalid samples (blinks, tracking loss). All other channel types — hand
+    kinematics, force plate, timestamps, acceleration, status bits — either
+    use different representations for invalid data or can legitimately exceed
+    the 99.9 threshold.
+
+    Parameters
+    ----------
+    channel_name : str
+        Name of the channel to check.
+
+    Returns
+    -------
+    bool
+        True only for Gaze_* channels, excluding Gaze_TimeStamp.
     """
     channel_lower = channel_name.lower()
-    
-    # Timestamp channels can have large values (seconds since start)
-    # Matches: TimeStamp, Timestamp, timestamp, time_stamp, etc.
+
+    # Only gaze channels use the ±99.9 sentinel value convention.
+    if not channel_lower.startswith("gaze_"):
+        return False
+
+    # Gaze_TimeStamp contains elapsed time in seconds and can legitimately
+    # exceed 99.9 for long trials.
     if "timestamp" in channel_lower:
         return False
-    
-    # Acceleration channels can have large values
-    # Matches: Acc, ACC, acceleration, L1Acc, HandAcc, etc.
-    if "acc" in channel_lower:
-        return False
-    
-    # Status/bit channels are integers that can be large
-    # Matches: Status, StatusBit, status_flag, bit, etc.
-    if "status" in channel_lower or "bit" in channel_lower:
-        return False
-    
+
     return True
 
 def _find_nan_gaps(data: np.ndarray) -> list[Gap]:
@@ -296,7 +302,7 @@ def _overlay_target_xt_yt(ax, explorer) -> None:
 
         h1, l1 = ax.get_legend_handles_labels()
         h2, l2 = ax2.get_legend_handles_labels()
-        ax.legend(h1 + h2, l1 + l2, loc="upper right")
+        ax.legend(h1 + h2, l1 + l2, loc="lower left")
     except Exception:
         return
 
@@ -333,7 +339,10 @@ def _choose_large_gap_strategy(
         fig.subplots_adjust(bottom=0.15, hspace=0.3)
     else:
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
-        fig.canvas.manager.window.showMaximized()
+        try:
+            fig.canvas.manager.window.showMaximized()
+        except AttributeError:
+            pass  # TkAgg or other backends don't support showMaximized
         plt.subplots_adjust(bottom=0.15, hspace=0.3)
 
     gap = large_gaps[0]
@@ -420,6 +429,13 @@ def _choose_large_gap_strategy(
         else:
             plt.close(fig)
 
+    def on_close(event):
+        user_decision["action"] = "cancel"
+        if reusing_fig:
+            fig.canvas.stop_event_loop()
+        else:
+            plt.close(fig)
+
     # Create four buttons
     ax_linear   = fig.add_axes([0.05, 0.05, 0.2, 0.06])
     ax_saccadic = fig.add_axes([0.28, 0.05, 0.2, 0.06])
@@ -448,6 +464,7 @@ def _choose_large_gap_strategy(
         "on_cancel": on_cancel,
     }
 
+    fig.canvas.mpl_connect('close_event', on_close)
     if reusing_fig:
         fig.canvas.draw()
         fig.canvas.start_event_loop(timeout=0)
@@ -464,7 +481,7 @@ def _choose_large_gap_strategy(
         return None
     return user_decision["action"]
 
-def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 50, force_prompt: bool = False, trial_info: Optional[str] = None):
+def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = AUTO_INTERP_THRESHOLD_FRAMES, force_prompt: bool = False, trial_info: Optional[str] = None):
     """
     Interpolate missing samples for multiple channels in the current trial.
 
