@@ -82,7 +82,7 @@ class KinarmDataExplorerGUI:
         self._open_figures = []
         self._trial_marks = {}  # Store trial quality marks
         self.available_events = []
-    
+        self.previous_events = []
         self.custom_save_location = get_save_location()
         self._sticky_channel_selection = set()
         self._populating_channels = False
@@ -425,22 +425,6 @@ class KinarmDataExplorerGUI:
 
             self.trial_panel.load_trial_marks()
 
-            # Get available events from first trial's events
-            self.available_events = []
-            try:
-                # Get unique event labels from any trial that has events
-                event_labels_set = set()
-                for trial_name, trial in self.explorer.exam.trials.items():
-                    if trial_name != "common" and hasattr(trial, 'events'):
-                        for event in trial.events:
-                            if hasattr(event, 'label'):
-                                event_labels_set.add(event.label)
-                
-                self.available_events = sorted(list(event_labels_set))
-                print(f"Found {len(self.available_events)} event types: {self.available_events}")
-            except Exception as e:
-                print(f"Event load failed: {e}")
-
             # Populate trial list with numbered entries
             self.trial_panel.refresh_trial_list()
             self._update_button_states()
@@ -478,6 +462,34 @@ class KinarmDataExplorerGUI:
             # Re-enable trial selection and clear loading flag
             self.trial_listbox.bind("<<ListboxSelect>>", self.select_trial)
             self._populating = False
+
+        # Get available events from first trial's events
+        self.available_events = []
+        try:
+            # Get unique event labels from any trial that has events
+            event_labels_set = set()
+            for trial_name, trial in self.explorer.exam.trials.items():
+                if trial_name != "common" and hasattr(trial, 'events'):
+                    for event in trial.events:
+                        if hasattr(event, 'label'):
+                            event_labels_set.add(event.label)
+
+            current_events = sorted(list(event_labels_set))
+
+            # Compare with previous file
+            if current_events != self.previous_events and self.previous_events:
+                messagebox.showinfo(
+                    "Export Channels Updated",
+                    "The number of available channels to export has changed.\n\n"
+                    "Please review your channel selection before labeling."
+                )
+            
+            # Update for next comparison
+            self.available_events = current_events
+            self.previous_events = current_events
+            print(f"Found {len(self.available_events)} event types: {self.available_events}")
+        except Exception as e:
+            print(f"Event load failed: {e}")
 
     def select_trial(self, event=None):
         """
