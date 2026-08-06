@@ -478,11 +478,17 @@ class KinarmDataExplorerGUI:
 
             # Compare with previous file
             if current_events != self.previous_events and self.previous_events:
-                messagebox.showinfo(
-                    "Export Channels Updated",
-                    "The number of available channels to export has changed.\n\n"
-                    "Please review your channel selection before labeling."
-                )
+                added = set(current_events) - set(self.previous_events)
+                removed = set(self.previous_events) - set(current_events)
+
+                message = "The available export channels have changed.\n\n"
+                if added:
+                    message += f"Added: {', '.join(sorted(added))}\n"
+                if removed:
+                    message += f"Removed: {', '.join(sorted(removed))}\n"
+                message += "\nPlease review your channel selection before labeling."
+
+                messagebox.showinfo("Export Channels Updated", message)
             
             # Update for next comparison
             self.available_events = current_events
