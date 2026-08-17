@@ -161,7 +161,7 @@ accurately.
 
 GECKO draws a deliberate line between what it automates and what it leaves to
 the researcher. Preprocessing is automated: sentinel values are detected and
-replaced, and small gaps (≤ 50 frames by default) are interpolated linearly
+replaced, and small gaps ($\leq$ 50 frames by default) are interpolated linearly
 without prompting. Where the choice is scientifically consequential, control
 returns to the user — larger gaps trigger an interactive preview offering linear
 interpolation, saccadic (sigmoid) interpolation, or leaving the gap as `NaN`,
