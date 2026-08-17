@@ -15,11 +15,11 @@ jobs:
         with:
           journal: joss
           # Path to the paper within your repo.
-          paper-path: paper/GECKO_paper.md
+          paper-path: paper/paper.md
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: paper
           # Output path for the compiled PDF (same directory as the input .md).
-          path: paper/GECKO_paper.pdf
+          path: paper/paper.pdf
