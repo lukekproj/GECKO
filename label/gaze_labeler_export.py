@@ -18,7 +18,6 @@ For each trial:
 - Trial{index}.TP{protocol}.C{count}.npz : Compressed NumPy format
 - Target_Table.csv : Reference file with workspace target definitions
 - TP_Table.csv : Reference file with task protocol parameters
-- Trial_Marks_and_Notes.csv : Trial quality marks and researcher notes  
 
 Directory Structure
 -------------------
@@ -60,15 +59,7 @@ import pandas as pd
 
 from data.exam_load import ExamLoad
 from label.gaze_labeler_ui import GazeLabeler
-
-
-# -----------------------------------------------------------------------------
-# Constants
-# -----------------------------------------------------------------------------
-
-# KINARM uses sentinel values (e.g., ±99.9) to mark invalid samples (blinks, tracking loss)
-KINARM_INVALID_ABS_THRESHOLD = 99.9
-
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 
 # -----------------------------------------------------------------------------
 # Data Cleaning Utilities
@@ -223,7 +214,6 @@ def compute_metrics_for_export(
     Notes
     -----
     - NaNs are linearly interpolated before computation to avoid derivative issues
-    - Eye height is fixed at 0.20 meters (confirmed with professor)
     - Returns empty dict on failure (caller handles gracefully)
     """
     try:
@@ -451,89 +441,6 @@ def write_tp_and_target_tables(out_dir: Path, exam: ExamLoad) -> None:
         tgt_df.to_csv(out_dir / "Target_Table.csv", index=False)
     if not tp_df.empty:
         tp_df.to_csv(out_dir / "TP_Table.csv", index=False)
-
-def write_trial_marks_and_notes(out_dir: Path, kinarm_path: str) -> None:
-    """
-    Export trial quality marks and notes to a CSV summary file.
-    
-    This creates a human-readable CSV file containing all trial marks (good/bad/review)
-    and associated notes that were added during the labeling process. This allows
-    researchers to share quality assessments along with exported data.
-    
-    Parameters
-    ----------
-    out_dir : Path
-        Directory where CSV file should be saved (same as trial CSVs).
-    kinarm_path : str
-        Path to original .kinarm file (used to locate the .notes.json file).
-    
-    Output File
-    -----------
-    - Trial_Marks_and_Notes.csv: Summary of all trial quality assessments
-    
-    CSV Format
-    ----------
-    Trial,Mark,Notes
-    02_11_01,good,""
-    02_11_02,bad,"Subject blinked during target presentation"
-    02_11_03,review,"Check angular velocity - looks unusual"
-    
-    Notes
-    -----
-    - Only trials with marks or notes are included (empty trials omitted)
-    - Silently skips if .kinarm.notes.json doesn't exist (first export scenario)
-    - Notes text is properly escaped for CSV format
-    - Empty notes are shown as empty strings for clarity
-    """    
-    # Find the .kinarm.notes.json file
-    notes_file = Path(kinarm_path).with_suffix('.kinarm.notes.json')
-    
-    # Skip if no marks/notes file exists yet
-    if not notes_file.exists():
-        return
-    
-    try:
-        # Load marks and notes
-        with open(notes_file, 'r') as f:
-            trial_marks = json.load(f)
-        
-        # Skip if empty
-        if not trial_marks:
-            return
-        
-        # Prepare CSV data
-        csv_path = out_dir / "Trial_Marks_and_Notes.csv"
-        
-        with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            
-            # Write header
-            writer.writerow(['Trial', 'Mark', 'Notes'])
-            
-            # Write each trial's marks/notes
-            for trial_name in sorted(trial_marks.keys()):
-                mark_data = trial_marks[trial_name]
-                
-                # Handle both old string format and new dict format
-                if isinstance(mark_data, str):
-                    mark = mark_data
-                    notes = ""
-                elif isinstance(mark_data, dict):
-                    mark = mark_data.get("mark", "")
-                    notes = mark_data.get("notes", "")
-                else:
-                    continue  # Skip malformed entries
-                
-                # Only include trials that have a mark or notes
-                if mark or notes:
-                    writer.writerow([trial_name, mark, notes])
-        
-        print(f"Trial marks and notes saved to: {csv_path}")
-        
-    except Exception as e:
-        # Silently fail - don't block export if marks file is corrupted
-        print(f"Note: Could not export trial marks/notes: {e}")
-
 
 def run_labeling_process(
     explorer,
@@ -779,8 +686,6 @@ def run_labeling_process(
         
         # Write reference tables (once per output directory)
         write_tp_and_target_tables(out_dir, exam)
-        # Write trial marks and notes summary
-        write_trial_marks_and_notes(out_dir, kinarm_path)
 
         # Build CSV headers
         headers = (

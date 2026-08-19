@@ -429,6 +429,40 @@ class KinarmDataExplorerGUI:
             self.trial_panel.refresh_trial_list()
             self._update_button_states()
 
+            # Get available events from first trial's events
+            self.available_events = []
+            try:
+                # Get unique event labels from any trial that has events
+                event_labels_set = set()
+                for trial_name, trial in self.explorer.exam.trials.items():
+                    if trial_name != "common" and hasattr(trial, 'events'):
+                        for event in trial.events:
+                            if hasattr(event, 'label'):
+                                event_labels_set.add(event.label)
+    
+                current_events = sorted(list(event_labels_set))
+    
+                # Compare with previous file
+                if current_events != self.previous_events and self.previous_events:
+                    added = set(current_events) - set(self.previous_events)
+                    removed = set(self.previous_events) - set(current_events)
+    
+                    message = "The available export channels have changed.\n\n"
+                    if added:
+                        message += f"Added: {', '.join(sorted(added))}\n"
+                    if removed:
+                        message += f"Removed: {', '.join(sorted(removed))}\n"
+                    message += "\nPlease review your channel selection before labeling."
+    
+                    messagebox.showinfo("Export Channels Updated", message)
+                
+                # Update for next comparison
+                self.available_events = current_events
+                self.previous_events = current_events
+                print(f"Found {len(self.available_events)} event types: {self.available_events}")
+            except Exception as e:
+                print(f"Event load failed: {e}")
+
             state = self._load_session_state()
             if state:
                 raw_name = state.get('trial_name', '')
@@ -462,40 +496,6 @@ class KinarmDataExplorerGUI:
             # Re-enable trial selection and clear loading flag
             self.trial_listbox.bind("<<ListboxSelect>>", self.select_trial)
             self._populating = False
-
-        # Get available events from first trial's events
-        self.available_events = []
-        try:
-            # Get unique event labels from any trial that has events
-            event_labels_set = set()
-            for trial_name, trial in self.explorer.exam.trials.items():
-                if trial_name != "common" and hasattr(trial, 'events'):
-                    for event in trial.events:
-                        if hasattr(event, 'label'):
-                            event_labels_set.add(event.label)
-
-            current_events = sorted(list(event_labels_set))
-
-            # Compare with previous file
-            if current_events != self.previous_events and self.previous_events:
-                added = set(current_events) - set(self.previous_events)
-                removed = set(self.previous_events) - set(current_events)
-
-                message = "The available export channels have changed.\n\n"
-                if added:
-                    message += f"Added: {', '.join(sorted(added))}\n"
-                if removed:
-                    message += f"Removed: {', '.join(sorted(removed))}\n"
-                message += "\nPlease review your channel selection before labeling."
-
-                messagebox.showinfo("Export Channels Updated", message)
-            
-            # Update for next comparison
-            self.available_events = current_events
-            self.previous_events = current_events
-            print(f"Found {len(self.available_events)} event types: {self.available_events}")
-        except Exception as e:
-            print(f"Event load failed: {e}")
 
     def select_trial(self, event=None):
         """

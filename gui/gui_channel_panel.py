@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from data.data_loader import DerivedChannel
 from utility.kinarm_utils import find_trial_tp_number
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD
 
 
 class ChannelPanel:
@@ -202,7 +203,7 @@ class ChannelPanel:
                             print(f"Could not get data for channel: {ch}")
                             continue
 
-                    raw_data[np.abs(raw_data) >= 99.9] = np.nan
+                    raw_data[np.abs(raw_data) >= KINARM_INVALID_ABS_THRESHOLD] = np.nan
                     processed_data = raw_data
 
                 channel_data_dict[ch] = processed_data
