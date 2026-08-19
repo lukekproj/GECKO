@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 import numpy as np
-from scipy.ndimage import label
+from scipy.ndimage import label, binary_dilation
 
 from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, GAZE_TIMESTAMP_CHANNEL
 from utility.user_prefs import (
@@ -25,7 +25,8 @@ from utility.user_prefs import (
     SACCADIC_TRANSITION_FRACTION, 
     SACCADIC_SIGMOID_STEEPNESS,
     DEFAULT_TIMESTAMP_SPACING_S,
-    AUTO_INTERP_THRESHOLD_FRAMES
+    AUTO_INTERP_THRESHOLD_FRAMES,
+    SENTINEL_BUFFER_FRAMES
 )
 
 @dataclass(frozen=True)
@@ -47,6 +48,44 @@ def _sanitize_kinarm_signal(values: np.ndarray) -> np.ndarray:
     data = np.asarray(values, dtype=float).copy()
     data[np.abs(data) >= KINARM_INVALID_ABS_THRESHOLD] = np.nan
     return data
+
+def _expand_nan_regions(data: np.ndarray, buffer_frames: int) -> np.ndarray:
+    """
+    Expand each contiguous NaN region by buffer_frames samples on both sides.
+
+    Accounts for tracker transition artifacts immediately surrounding a
+    detected blink/sentinel event: values that are not extreme enough to be
+    caught by the sentinel threshold, but are not valid gaze data either.
+    Matches the blink-removal buffer described in Singh et al. (2016), which
+    discards 5 points on each side of a detected blink before interpolating.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Signal that has already been sentinel-cleaned (NaN where invalid).
+    buffer_frames : int
+        Number of additional samples to null out on each side of every NaN
+        region. 0 disables expansion.
+
+    Returns
+    -------
+    np.ndarray
+        Copy of data with buffer_frames of additional NaN padding around
+        every existing NaN region.
+    """
+    if buffer_frames <= 0:
+        return data
+
+    mask = np.isnan(data)
+    if not mask.any():
+        return data
+
+    structure = np.ones(2 * buffer_frames + 1, dtype=bool)
+    expanded_mask = binary_dilation(mask, structure=structure)
+
+    result = data.copy()
+    result[expanded_mask] = np.nan
+    return result
 
 
 def _should_sanitize_channel(channel_name: str) -> bool:
@@ -532,6 +571,7 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
         # Only sanitize if appropriate for this channel type
         if _should_sanitize_channel(channel_name):
             data = _sanitize_kinarm_signal(raw)
+            data = _expand_nan_regions(data, SENTINEL_BUFFER_FRAMES)
         else:
             data = np.asarray(raw, dtype=float).copy()
 

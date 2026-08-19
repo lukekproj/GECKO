@@ -104,6 +104,8 @@ DEFAULT_TIMESTAMP_SPACING_S = 0.001  # 1ms default for typical KINARM data
 
 GAZE_TIMESTAMP_CHANNEL = "Gaze_TimeStamp"
 
+SENTINEL_BUFFER_FRAMES = 5              # Frames discarded on each side of a detected sentinel gap
+
 _VALID_CONFIG_KEYS = {
     "KINARM_INVALID_ABS_THRESHOLD",
     "DEFAULT_GAZE_LOWPASS_CUTOFF_HZ",
@@ -117,6 +119,7 @@ _VALID_CONFIG_KEYS = {
     "SACCADIC_SIGMOID_STEEPNESS",
     "MAX_LABELER_CHANNELS",
     "DEFAULT_TIMESTAMP_SPACING_S",
+    "SENTINEL_BUFFER_FRAMES",
 }
 
 def _exe_dir() -> Path:

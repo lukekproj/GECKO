@@ -13,7 +13,8 @@
     "SACCADIC_TRANSITION_FRACTION": "Fraction of gap used for sigmoid blend in saccadic interpolation",
     "SACCADIC_SIGMOID_STEEPNESS": "Sigmoid steepness for saccadic interpolation (higher = sharper)",
     "MAX_LABELER_CHANNELS": "Maximum overlay channels shown in the gaze labeler including Gaze_X and Gaze_Y",
-    "DEFAULT_TIMESTAMP_SPACING_S": "Default timestamp spacing in seconds (1ms for typical 1000Hz KINARM data)"
+    "DEFAULT_TIMESTAMP_SPACING_S": "Default timestamp spacing in seconds (1ms for typical 1000Hz KINARM data)",
+    "SENTINEL_BUFFER_FRAMES": "Frames discarded on each side of a detected sentinel gap to remove tracker transition noise"
   },
 
   "KINARM_INVALID_ABS_THRESHOLD": 99.9,
@@ -27,5 +28,6 @@
   "SACCADIC_TRANSITION_FRACTION": 0.2,
   "SACCADIC_SIGMOID_STEEPNESS": 10.0,
   "MAX_LABELER_CHANNELS": 6,
-  "DEFAULT_TIMESTAMP_SPACING_S": 0.001
+  "DEFAULT_TIMESTAMP_SPACING_S": 0.001,
+  "SENTINEL_BUFFER_FRAMES": 5
 }
