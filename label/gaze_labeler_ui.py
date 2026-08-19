@@ -963,7 +963,7 @@ class GazeLabeler:
         try:
             # Remove trial number prefix for cleaner display
             display_name = "_".join(self.trial_name.split("_")[1:])
-        except:
+        except Exception:
             display_name = self.trial_name
 
         ax.set_title(f"Summary — {display_name}", pad=15)
@@ -1082,7 +1082,7 @@ class GazeLabeler:
         Matplotlib dialog to choose label order using a clickable list + Up/Down.
         Returns: list[str] order, or None if user closes/cancels.
         """
-        labels = ['fixation', 'pursuit', 'saccade']
+        labels = ['saccade', 'pursuit', 'fixation']
 
         existing = getattr(self, "label_order", None)
         if not existing:
