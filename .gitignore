@@ -4,6 +4,7 @@ build/
 dist/
 *.spec
 *.kinarm
+!examples/*.kinarm
 *.mat
 *.npz
 output/

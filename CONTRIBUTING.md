@@ -30,7 +30,7 @@ Thanks for your interest in contributing to GECKO!
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes
-3. Test your changes with a .kinarm file before submitting
+3. Test your changes with a .kinarm file before submitting (examples/demo_1.kinarm works well for this)
 4. Open a PR with a clear description of what you changed and why
 
 ## Questions?
