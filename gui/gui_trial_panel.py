@@ -52,6 +52,7 @@ class TrialPanel:
 
         if current_index is not None:
             self.app.trial_listbox.selection_set(current_index)
+            self.app.trial_listbox.see(current_index)
 
     def mark_trial(self, status):
         """Mark the currently selected trial with a quality status."""
