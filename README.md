@@ -60,9 +60,11 @@ python gui/gui_main.py
 4. **Select Event Markers** — choose events to display as vertical lines during labeling (e.g. TARGET_ON)
 5. **Select Channels to Export** — choose which data channels appear in the output CSV
 6. **Label Events** — opens the gaze labeling interface; interpolation is offered automatically if large gaps are detected
-7. **Accept & Finish / Save & Next Trial** — exports CSV and NPZ for the trial
+7. **Save & Finish / Save & Next Trial** — exports CSV and NPZ for the trial
 
 Repeat steps 2–7 for each trial. All export and marker selections persist across trials.
+
+New to GECKO? Watch the [video walkthrough](https://psu.mediaspace.kaltura.com/media/t/1_04zjsojj) using the included demo dataset.
 
 ---
 
