@@ -23,3 +23,8 @@ Trials 4-6 contain intentionally placed data gaps, useful for testing GECKO's in
 
 - This file is provided for demonstration and testing purposes only.
 - Exported output will be written to your configured save location (defaults to `Desktop/gaze_labels`), not this `examples/` folder.
+
+### Video Walkthrough
+
+A full walkthrough of GECKO using this demo dataset is available here:
+[GECKO — Python software for gaze artifact rejection and classification](https://psu.mediaspace.kaltura.com/media/t/1_04zjsojj)
