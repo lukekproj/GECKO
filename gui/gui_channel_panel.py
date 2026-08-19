@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from data.data_loader import DerivedChannel
 from utility.kinarm_utils import find_trial_tp_number
 from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD
+from data.data_interpolation import _should_sanitize_channel
 
 
 class ChannelPanel:
@@ -38,7 +39,7 @@ class ChannelPanel:
 
         self.app._sticky_channel_selection.difference_update(visible)
         self.app._sticky_channel_selection.update(selected)
-
+    
     def apply_channel_filter(self):
         """Filter both channel and export listboxes using the search text, preserving selections."""
         query = self.app._channel_filter_var.get().strip().lower()
@@ -50,7 +51,7 @@ class ChannelPanel:
                 if all(t in ch.lower() for t in tokens)
             ]
 
-            self.app._populating_channels = True
+            self.app.channel_listbox.unbind('<<ListboxSelect>>')
             try:
                 self.app.channel_listbox.delete(0, tk.END)
                 for i, ch in enumerate(filtered_channels, 1):
@@ -61,7 +62,7 @@ class ChannelPanel:
                     if ch_name in self.app._sticky_channel_selection:
                         self.app.channel_listbox.selection_set(i)
             finally:
-                self.app._populating_channels = False
+                self.app.channel_listbox.bind('<<ListboxSelect>>', self.on_channel_select)
 
         if hasattr(self.app, '_all_export_channels') and self.app._all_export_channels:
             filtered_export = [
@@ -203,7 +204,8 @@ class ChannelPanel:
                             print(f"Could not get data for channel: {ch}")
                             continue
 
-                    raw_data[np.abs(raw_data) >= KINARM_INVALID_ABS_THRESHOLD] = np.nan
+                    if _should_sanitize_channel(ch):
+                        raw_data[np.abs(raw_data) >= KINARM_INVALID_ABS_THRESHOLD] = np.nan
                     processed_data = raw_data
 
                 channel_data_dict[ch] = processed_data

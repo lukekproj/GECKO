@@ -401,6 +401,17 @@ class KinarmDataExplorerGUI:
         filepath = filedialog.askopenfilename(filetypes=[("Kinarm Files", "*.kinarm")])
         if not filepath:
             return
+
+        # Save session state for the file being replaced, if one was loaded,
+        # so in-progress channel/trial selections aren't lost when switching files.
+        if self.explorer and self.current_trial:
+            self.session.save_state(
+                current_trial_name=self.current_trial.name,
+                trial_names=self.explorer.trial_names,
+                filepath=self.explorer.filepath,
+                channel_filter=self._channel_filter_var.get(),
+                inspect_selection=self._sticky_channel_selection,
+            )
             
         try:
             self._populating = True  # Prevent selection callbacks during loading
