@@ -19,8 +19,9 @@ from typing import Dict, Optional
 import numpy as np
 from scipy.ndimage import label
 
-from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD
+from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, GAZE_TIMESTAMP_CHANNEL
 from utility.user_prefs import (
+    KINARM_INVALID_ABS_THRESHOLD,
     SACCADIC_TRANSITION_FRACTION, 
     SACCADIC_SIGMOID_STEEPNESS,
     DEFAULT_TIMESTAMP_SPACING_S,
@@ -535,7 +536,7 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
             data = np.asarray(raw, dtype=float).copy()
 
         # Special handling: timestamps are upsampled (not interpolated like signals)
-        if channel_name == "Gaze_TimeStamp":
+        if channel_name == GAZE_TIMESTAMP_CHANNEL:
             upsampled = upsample_timestamps(data)
             interpolated_channels[channel_name] = upsampled
             explorer.interpolation_cache[(trial_name, channel_name)] = upsampled
