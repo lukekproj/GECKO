@@ -685,6 +685,13 @@ class GazeLabeler:
             if event.inaxes != ax or event.xdata is None:
                 return
             
+            # Ignore clicks while the toolbar's zoom/pan tool is active,
+            # and ignore right-clicks entirely (only left-click labels).
+            if fig.canvas.toolbar is not None and fig.canvas.toolbar.mode != '':
+                return
+            if event.button != 1:
+                return
+            
             idx = int(round(event.xdata))
             # Clamp to valid frame range (allows clicking in padding to select edge frames)
             idx = max(0, min(total_frames - 1, idx))
