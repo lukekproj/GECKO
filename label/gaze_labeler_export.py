@@ -61,9 +61,30 @@ from data.exam_load import ExamLoad
 from label.gaze_labeler_ui import GazeLabeler
 from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
 
-# -----------------------------------------------------------------------------
-# Data Cleaning Utilities
-# -----------------------------------------------------------------------------
+# Maps user-facing channel name variants to internal standardized metric keys.
+# Handles both display names and legacy names for backward compatibility.
+GAZE_METRIC_ALIASES: Dict[str, str] = {
+    "Angular Velocity": "Angular_Velocity",
+    "Angular Velocity (deg/s)": "Angular_Velocity",
+    "Angular_Velocity": "Angular_Velocity",
+    "FVR": "FVR (Foveal_Visual_Radius)",
+    "FVR (mm)": "FVR (Foveal_Visual_Radius)",
+    "FVR (Foveal_Visual_Radius)": "FVR (Foveal_Visual_Radius)",
+    "Rho": "Rho (Distance)",
+    "Rho (Distance)": "Rho (Distance)",
+    "Theta": "Theta (Azimuth)",
+    "Theta (Azimuth)": "Theta (Azimuth)",
+    "Phi": "Phi (Elevation)",
+    "Phi (Elevation)": "Phi (Elevation)",
+}
+# Per-frame integer codes written to the gaze_event column in exported CSVs.
+# Code 0 is also used for unlabeled frames and the "other" category.
+GAZE_EVENT_CODES: Dict[str, int] = {
+    "saccade": 1,
+    "pursuit": 2,
+    "fixation": 3,
+    "other": 0,
+}
 
 def clean_kinarm_signal(values: Any) -> np.ndarray:
     """
