@@ -18,7 +18,8 @@ Thanks for your interest in contributing to GECKO!
 
 1. Clone the repo: `git clone https://github.com/lukekproj/GECKO.git`
 2. Install dependencies: `pip install -r requirements.txt`
-3. Run from source: `python gui_main.py`
+3. Install dev dependencies (for running tests): `pip install -r requirements-dev.txt`
+4. Run from source: `python gui_main.py`
 
 ## Code Style
 
