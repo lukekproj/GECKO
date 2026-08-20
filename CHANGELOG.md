@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.5.4 - 2026-08-21
+### Configuration
+- Removed remaining hardcoded values across the gaze/interpolation pipeline (sentinel threshold, lowpass filter cutoff, auto-interpolation threshold) so config.json is now consistently respected everywhere
+- Added configurable sentinel buffer (SENTINEL_BUFFER_FRAMES, default 5) that expands each detected sentinel gap on both sides before interpolation, catching tracker transition noise around blinks that doesn't individually cross the sentinel threshold (implements the blink-removal buffer described in Singh et al. 2016)
+### Bug Fixes
+- Fixed division by zero errors at gaze angle singularities in angular velocity calculations
+- Fixed hardcoded channel cleaning to use whitelist approach (only Gaze_* channels use ±99.9 sentinel, excluding Gaze_TimeStamp), and applied the same whitelist to channel inspection's fallback data path
+- Fixed event markers and export channel list showing stale data (from previous file or empty on first load) when resuming a session, due to available_events being computed after trial selection instead of before
+- Fixed "Channels in Trial" selections reverting to stale/default values on resume: closed a listbox event timing race during list rebuilds, and fixed session state not being saved when switching directly between .kinarm files without first changing trials
+- Fixed trial list scrolling back to top when marking a trial (Good/Bad/Review), even though the correct trial remained selected underneath
+- Fixed zoom/pan tool clicks and right-clicks being registered as label placements in the labeling window
+- Fixed NameError crash during trial export caused by GAZE_EVENT_CODES and GAZE_METRIC_ALIASES being accidentally removed in a previous commit
+- Changed default preset labeling order to Saccade, Pursuit, Fixation (previously Fixation, Pursuit, Saccade); only affects first-time use, saved custom orders are unaffected
+### Interpolation
+- Smart auto-sizing of plot data (max_points adapts to trial length instead of fixed 5000), fixing issue where trial plot gets cut off during labelling
+- Interpolation caching within session (avoids re-prompting for interpolation method when going from inspecting → labeling a channel)
+### Safety & UX
+- Export channel change detection -- displays exactly which exportable channels were added/removed when switching files
+- Improved DPI scaling for high-resolution displays (macOS Retina, Windows High-DPI, Linux X11)
+- Platform-aware font selection (Windows/Linux/Mac)
+- Better labeler button terminology ("Save & Finish" vs "Accept & Finish")
+- Consistent color scheme improvements (cornflowerblue for pursuit channel)
+### Examples & Reproducibility
+- Added examples/ folder with demo_1.kinarm sample dataset and README, including intentional data gaps in trials 4-6 for testing interpolation features
+- Added .gitignore exception (!examples/*.kinarm) so the demo dataset can be tracked despite the blanket *.kinarm ignore rule
+### Dependencies
+- Removed unused h5py dependency from requirements.txt and README.md; pinned minimum tested versions for remaining dependencies
+### Cleanup
+- Removed unused write_trial_marks_and_notes() function and Trial_Marks_and_Notes.csv reference in gaze_labeler_export.py (legacy code expecting a .kinarm.notes.json file that was never created; trial marks/notes are handled via Trial_Notes.csv in gui_session.py)
+### Testing
+- Added pytest test suite (tests/) covering sentinel cleaning, the Gaze_* whitelist, spherical coordinate/angular velocity/FVR calculations, config.json loading, and the sentinel buffer expansion
+- Added CI workflow (tests.yml) to run the test suite automatically on push and pull request
+### Documentation
+- Updated technical reference to document the sentinel buffer and correct the Windows preferences file path
+- Fixed README clone instructions and added repository structure overview
+### Other
+- Updated docstrings to reference Singh et al. methodology in gaze calculations
+- Cross-platform path handling for save locations (Desktop detection with home directory fallback)
+- UTF-8 encoding explicitly specified for all CSV exports
+- Safe matplotlib window maximize with backend compatibility fallback
+
 ## v1.5.3 - 2026-06-08
 ### Bug Fixes
 - Fix duplicated/zoomed plot appearance when resizing labeler window
