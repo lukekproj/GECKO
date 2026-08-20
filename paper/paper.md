@@ -27,7 +27,7 @@ affiliations:
     ror: "04p491231"
   - index: 2
     name: Penn State Neuroscience Institute, The Pennsylvania State University, University Park, PA-16802, USA
-date: 17 June 2026
+date: 17 August 2026
 bibliography: paper.bib
 ---
 
@@ -58,8 +58,8 @@ with neurological disorders.
 Kinarm robotic exoskeleton and endpoint systems [@scott1999] are widely used in sensorimotor
 neuroscience and rehabilitation to measure upper-limb movement with high spatial
 and temporal precision. These systems are increasingly paired with eye trackers
-(e.g., the EyeLink 1000) to study eye–hand coordination during reaching
-and interception. The manufacturer's data files (`.kinarm`) store synchronized
+in many labs across the world to study eye–hand coordination during reaching
+and interception movements (\autoref{fig:geometry}\,A). The manufacturer's data files (`.kinarm`) store synchronized
 gaze and kinematic channels, but provide no reliable tool to classify gaze
 events, and two preprocessing steps must be completed before any classification
 — manual or automatic — can begin.
@@ -68,12 +68,12 @@ First, gaze position signals lost to blinks or to hardware tracking failures are
 large sentinel values. These must be detected and replaced, and the resulting missing segments 
 interpolated, before the signal can be differentiated to obtain velocity and acceleration. 
 Second, the eye tracker outputs point-of-regard (POR) data as $(x, y)$ coordinates in the transverse plane
-(\autoref{fig:geometry}\,B), which must be converted into angular coordinates. Because 
+(\autoref{fig:geometry}\,C), which must be converted into angular coordinates. Because 
 that plane sits in front of and below the participant, the viewing distance varies across 
 the workspace and the conversion is not the simple scalar calculation available for a frontoparallel display
-(\autoref{fig:geometry}\,A); recovering ocular kinematics is instead an inherently three-dimensional geometric problem.
+(\autoref{fig:geometry}\,B); recovering ocular kinematics is instead an inherently three-dimensional geometric problem.
 
-![**Gaze geometry in a Kinarm workspace is an inherently three-dimensional problem, and GECKO is built around it.** (A) In standard eye tracking, stimuli appear on a frontoparallel display at an approximately fixed viewing distance $b$, so a stimulus of extent $a$ subtends a single scalar visual angle, $\tan(\beta/2) = a/(2b)$. (B) In Kinarm experiments, stimuli are presented in a transverse plane in front of and below the participant. Following @singh2016, the eye is modeled as a point source at the origin of an eye-based frame $X'Y'Z'$ whose $Z'$ axis points downward, so the stimulus plane lies at $z' = H$, the eye height above the plane. Viewing distance varies across the workspace and gaze acquires a depth component, so the recorded two-dimensional point-of-regard (POR) must be transformed into eye-centered spherical coordinates: the radial eye-to-POR distance $\rho$, the azimuth $\theta$ measured in the $X'Y'$ plane from the $X'$ axis (shown at the foot of the perpendicular, which is equivalent because translation along $Z'$ leaves $x'$ and $y'$ unchanged), and the elevation $\varphi$ measured from the $+Z'$ axis. (C) GECKO implements this transformation, derives gaze angular velocity from it, and couples the result to a researcher-in-the-loop interface that assigns a saccade, pursuit, or fixation label to every frame — the step that no existing screen-based event detector performs on Kinarm data.\label{fig:geometry}](kinarm_gaze_geometry.jpg){width="100%"}
+![**Gaze geometry in a Kinarm workspace is an inherently three-dimensional problem, and GECKO is built around it.** (A) A Kinarm Endpoint robot. The seated participant grasps a manipulandum below the workspace and views targets projected into a horizontal plane at hand level, with a remote eye tracker mounted at the back of the workspace. (B) In standard eye tracking, stimuli appear on a frontoparallel display at an approximately fixed viewing distance $b$, so a stimulus of extent $a$ subtends a single scalar visual angle, $\tan(\beta/2) = a/(2b)$. (C) In Kinarm experiments, stimuli are presented in a transverse plane in front of and below the participant. Following @singh2016, the eye is modeled as a point source at the origin of an eye-based frame $X'Y'Z'$ whose $Z'$ axis points downward, so the stimulus plane lies at $z' = H$, the eye height above the plane. Viewing distance varies across the workspace and gaze acquires a depth component, so the recorded two-dimensional point-of-regard (POR) must be transformed into eye-centered spherical coordinates: the radial eye-to-POR distance $\rho$, the azimuth $\theta$ measured in the $X'Y'$ plane from the $X'$ axis (shown at the foot of the perpendicular, which is equivalent because translation along $Z'$ leaves $x'$ and $y'$ unchanged), and the elevation $\varphi$ measured from the $+Z'$ axis. (D) GECKO implements this transformation, derives gaze angular velocity from it, and couples the result to a researcher-in-the-loop interface that assigns a saccade, pursuit, or fixation label to every frame — the step that no existing screen-based event detector performs on Kinarm data.\label{fig:geometry}](kinarm_gaze_geometry.jpg){width="100%"}
 
 @singh2016 introduced a geometric method for computing ocular kinematics and
 classifying gaze events specifically for robotic environments with moving and 
@@ -90,10 +90,9 @@ distance in the workspace — a correction that matters when deciding whether
 gaze is close enough to a target to count as fixating or pursuing it. GECKO
 then surfaces these computations in a labeling interface designed for imperfect
 gaze data, making expert annotation practical across a full dataset
-(\autoref{fig:geometry}\,C). The target users are motor-control,
-sensorimotor-neuroscience, and rehabilitation researchers who collect gaze data
-alongside limb dynamics using Kinarm and need a consistent, documented first-pass
-pipeline that does not require programming to operate.
+(\autoref{fig:geometry}\,D). The target users are motor-control and rehabilitation researchers 
+who collect gaze data alongside Kinarm limb dynamics and need a documented first-pass 
+pipeline that requires no programming.
 
 # State of the field
 
@@ -118,12 +117,12 @@ GECKO is, to our knowledge, the first openly available tool that (i) reads the
 native `.kinarm` format, (ii) implements the @singh2016 geometric
 ocular-kinematics pipeline, and (iii) couples it to a frame-level,
 human-in-the-loop labeling interface with full export control. We built a
-dedicated tool rather than extending an existing package for two reasons. None
-of the screen-based detectors read Kinarm data, account for the variable
-eye-to-stimulus depth of a transverse workspace, or compare gaze kinematics
-against the motion of the targets themselves — the comparison that separating
-smooth pursuit from fixation requires when the stimulus is moving. In addition,
-the laboratory workflow benefits from manual oversight that automated detectors
+dedicated tool rather than extending an existing package for two reasons.None of the 
+screen-based detectors read Kinarm data or account for the variable
+eye-to-stimulus depth of a transverse workspace. Nor do they compare gaze
+kinematics against the motion of the targets themselves, which is the
+comparison needed to separate smooth pursuit from fixation when the stimulus
+is moving. In addition, the laboratory workflow benefits from manual oversight that automated detectors
 do not provide, a need recognized even within screen-based research, where
 automatic detections are sometimes corrected by hand [@hessels2017].
 
@@ -196,10 +195,8 @@ manual interception of moving objects, and the Sensorimotor Control and Robotic
 Rehabilitation Research Laboratory at the University of Delaware (Dr. Jennifer
 Semrau), which uses robotics to improve assessment and rehabilitation after
 stroke. This adoption indicates a recurring need across any laboratory that uses
-Kinarm and eye-tracking. The software is released under the MIT license with tagged
-releases, a changelog, a contributing guide, a tutorial video, and continuous-integration
-workflows, and it ships with a worked demonstration dataset, a user manual, and
-a technical reference documenting every processing step.
+Kinarm and eye-tracking. The software is released under the MIT license, with 
+documentation, a worked demonstration dataset, and continuous integration.
 
 
 # AI usage disclosure
