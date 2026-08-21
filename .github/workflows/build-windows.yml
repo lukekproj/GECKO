@@ -1,0 +1,66 @@
+name: Build Windows Executable
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name for this build (e.g. v1.5.4). Leave blank when triggered manually to default to "dev".'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: Build GECKO Windows executable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version name
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="GECKO_${GITHUB_REF#refs/tags/}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="GECKO_${{ github.event.inputs.version }}"
+          else
+            VERSION="GECKO_dev"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        env:
+          GECKO_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          pyinstaller GECKO_windows.spec
+
+      - name: Copy config.json to build root
+        run: |
+          copy config.json "dist\${{ steps.version.outputs.version }}\config.json"
+
+      - name: Zip build output
+        shell: bash
+        run: |
+          cd dist
+          7z a -tzip "${{ steps.version.outputs.version }}.zip" "${{ steps.version.outputs.version }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.version }}
+          path: dist/${{ steps.version.outputs.version }}.zip

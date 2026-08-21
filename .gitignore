@@ -3,6 +3,7 @@ __pycache__/
 build/
 dist/
 *.spec
+!GECKO_windows.spec
 *.kinarm
 !examples/*.kinarm
 *.mat
