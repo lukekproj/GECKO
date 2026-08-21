@@ -22,6 +22,7 @@
 - Platform-aware font selection (Windows/Linux/Mac)
 - Better labeler button terminology ("Save & Finish" vs "Accept & Finish")
 - Consistent color scheme improvements (cornflowerblue for pursuit channel)
+- Marking a trial bad in the labeling summary window now also updates the trial's status on the main list, so both stay in sync
 ### Examples & Reproducibility
 - Added examples/ folder with demo_1.kinarm sample dataset and README, including intentional data gaps in trials 4-6 for testing interpolation features
 - Added .gitignore exception (!examples/*.kinarm) so the demo dataset can be tracked despite the blanket *.kinarm ignore rule
