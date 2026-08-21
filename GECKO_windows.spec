@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-PyInstaller spec file for GECKO (Windows, onedir build).
+
+# PyInstaller spec file for GECKO (Windows, onedir build).
 
 import os
 
@@ -38,7 +38,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,      # windowed — no console window
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
