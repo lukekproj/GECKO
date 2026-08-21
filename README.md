@@ -6,7 +6,7 @@
 
 GECKO is an open-source Python desktop application for visualizing, annotating, and exporting gaze and kinematic data from KINARM robotic exoskeleton experiments. It provides a researcher-in-the-loop workflow for classifying gaze events (fixations, saccades, and smooth pursuits) with frame-level precision, reducing manual analysis time per trial to seconds.
 
-Developed by the [Sensorimotor Neuroscience and Learning Laboratory](https://www.huck.psu.edu/laboratories/sensorimotor-neuroscience-and-learning-laboratory) at Pennsylvania State University.
+Developed by the [Sensorimotor Neuroscience and Learning Laboratory](https://sites.psu.edu/singhlab/) at Pennsylvania State University.
 
 ---
 
