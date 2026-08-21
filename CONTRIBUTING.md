@@ -19,7 +19,7 @@ Thanks for your interest in contributing to GECKO!
 1. Clone the repo: `git clone https://github.com/lukekproj/GECKO.git`
 2. Install dependencies: `pip install -r requirements.txt`
 3. Install dev dependencies (for running tests): `pip install -r requirements-dev.txt`
-4. Run from source: `python gui_main.py`
+4. Run from source: `python gui/gui_main.py`
 
 ## Code Style
 
@@ -31,7 +31,7 @@ Thanks for your interest in contributing to GECKO!
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes
-3. Test your changes with a .kinarm file before submitting (examples/demo_1.kinarm works well for this)
+3. Run the test suite (`pytest tests/`) and test your changes with a .kinarm file before submitting (examples/demo_1.kinarm works well for this)
 4. Open a PR with a clear description of what you changed and why
 
 ## Questions?
