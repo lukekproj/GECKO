@@ -232,6 +232,9 @@ class GazeLabelerController:
                     label_order=label_order,
                 )
 
+                if labeler is not None and getattr(labeler, "bad_trial", False):
+                    app.trial_panel.mark_trial("bad")
+
                 try:
                     if labeler and getattr(labeler, "label_order", None):
                         set_label_order(labeler.label_order)
