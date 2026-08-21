@@ -53,6 +53,7 @@ class ChannelPanel:
 
             self.app.channel_listbox.unbind('<<ListboxSelect>>')
             try:
+                ch_scroll = self.app.channel_listbox.yview()[0]
                 self.app.channel_listbox.delete(0, tk.END)
                 for i, ch in enumerate(filtered_channels, 1):
                     self.app.channel_listbox.insert(tk.END, f"{i}. {ch}")
@@ -61,6 +62,7 @@ class ChannelPanel:
                     ch_name = self.parse_channel_item(self.app.channel_listbox.get(i))
                     if ch_name in self.app._sticky_channel_selection:
                         self.app.channel_listbox.selection_set(i)
+                self.app.channel_listbox.yview_moveto(ch_scroll)
             finally:
                 self.app.channel_listbox.bind('<<ListboxSelect>>', self.on_channel_select)
 
@@ -72,6 +74,7 @@ class ChannelPanel:
 
             self.app._populating_export = True
             try:
+                exp_scroll = self.app.export_listbox.yview()[0]
                 self.app.export_listbox.delete(0, tk.END)
                 for ch in filtered_export:
                     self.app.export_listbox.insert(tk.END, ch)
@@ -80,6 +83,7 @@ class ChannelPanel:
                     ch_name = self.app.export_listbox.get(i)
                     if ch_name in self.app._sticky_export_selection:
                         self.app.export_listbox.selection_set(i)
+                self.app.export_listbox.yview_moveto(exp_scroll)
             finally:
                 self.app._populating_export = False
 
@@ -102,12 +106,14 @@ class ChannelPanel:
         for ev in self.app.available_events:
             self.app._all_export_channels.append(ev)
 
+        exp_scroll = self.app.export_listbox.yview()[0]
         self.app.export_listbox.delete(0, tk.END)
         for ch in self.app._all_export_channels:
             self.app.export_listbox.insert(tk.END, ch)
 
         self.app._event_channel_map = {ev: ev for ev in self.app.available_events}
 
+        mkr_scroll = self.app.marker_listbox.yview()[0]
         self.app.marker_listbox.delete(0, tk.END)
         for ev in self.app.available_events:
             self.app.marker_listbox.insert(tk.END, ev)
@@ -116,7 +122,10 @@ class ChannelPanel:
             if self.app.marker_listbox.get(i) in self.app._sticky_marker_selection:
                 self.app.marker_listbox.selection_set(i)
 
+        self.app.marker_listbox.yview_moveto(mkr_scroll)
+
         self.app.export_panel_obj.restore_sticky_export_selection()
+        self.app.export_listbox.yview_moveto(exp_scroll)
 
     def compute_derived_channels(self):
         """Calculate derived kinematic channels from raw position data."""

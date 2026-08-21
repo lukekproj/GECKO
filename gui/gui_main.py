@@ -433,6 +433,9 @@ class KinarmDataExplorerGUI:
             self.trial_listbox.delete(0, tk.END)
             self.channel_listbox.delete(0, tk.END)
             self.export_listbox.delete(0, tk.END)
+            self.marker_listbox.delete(0, tk.END)
+            self._all_channels = []
+            self._all_export_channels = []
 
             self.trial_panel.load_trial_marks()
 
