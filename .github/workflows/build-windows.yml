@@ -51,7 +51,7 @@ jobs:
 
       - name: Copy config.json to build root
         run: |
-          copy config.json "dist\${{ steps.version.outputs.version }}\config.json"
+          copy utility\config.json "dist\${{ steps.version.outputs.version }}\config.json"
 
       - name: Zip build output
         shell: bash
