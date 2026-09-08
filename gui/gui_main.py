@@ -280,6 +280,16 @@ class KinarmDataExplorerGUI:
         trial_scrollbar.config(command=self.trial_listbox.yview)
 
         self.trial_listbox.bind("<<ListboxSelect>>", self.select_trial)
+
+        # Selected file info display
+        self.selected_file_var = tk.StringVar(value="Loaded File: (none)")
+        self.selected_file_label = tk.Label(
+            parent,
+            textvariable=self.selected_file_var,
+            font=self.bold_font,
+            anchor="w"
+        )
+        self.selected_file_label.pack(fill=tk.X, padx=6, pady=(0, 8))
         
         # Selected trial info display
         self.selected_trial_var = tk.StringVar(value="Selected Trial: (none)")
@@ -401,6 +411,8 @@ class KinarmDataExplorerGUI:
         filepath = filedialog.askopenfilename(filetypes=[("Kinarm Files", "*.kinarm")])
         if not filepath:
             return
+
+        self.selected_file_var.set(f"Loaded File: {Path(filepath).name}")
             
         try:
             self._populating = True  # Prevent selection callbacks during loading
