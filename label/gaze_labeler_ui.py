@@ -88,6 +88,8 @@ class GazeLabeler:
         Flag indicating user cancelled entire labeling process.
     bad_trial : bool
         Flag indicating trial is marked as unusable (exports as code 9).
+    marked_for_review : bool
+        Flag indicating a trial is marked for review
     """
     
     def __init__(self, trial_name, gaze_x, gaze_y, overlay_channels=None, trial_info=None, marker_frames=None, label_order=None):
@@ -136,6 +138,7 @@ class GazeLabeler:
         # Control flags
         self.cancel_all = False      # User cancelled entire process
         self.bad_trial = False        # Trial marked as unusable
+        self.marked_for_review = False # Trial flagged for review by another labeler
 
         self._prompt_for_order = (label_order is None)
         self.label_order = list(label_order) if label_order else None
@@ -995,6 +998,17 @@ class GazeLabeler:
                 btn_bad_trial.hovercolor = 'gray'
             fig.canvas.draw_idle()
 
+        def on_review_toggle(event):
+            self.marked_for_review = not self.marked_for_review
+            if self.marked_for_review:
+                btn_review.label.set_text('✓ Marked\nfor Review')
+                btn_review.color = '#FFE4B5'
+                btn_review.hovercolor = 'orange'
+            else:
+                btn_review.label.set_text('Mark for\nReview')
+                btn_review.color = 'lightgray'
+                btn_review.hovercolor = 'gray'
+
         def on_edit_fixation(event):
             choice["method"] = "edit_fixation"
             plt.close(fig)
@@ -1039,14 +1053,15 @@ class GazeLabeler:
         button_height = 0.06
         
         # Button layout: Edit buttons, Restart, Next Trial, Accept, Bad Trial (top row)
-        ax_bad_trial = plt.axes([0.105, button_y, 0.09, button_height])
-        ax_edit_fix = plt.axes([0.205, button_y, 0.09, button_height])
-        ax_edit_pur = plt.axes([0.305, button_y, 0.09, button_height])
-        ax_edit_sac = plt.axes([0.405, button_y, 0.09, button_height])
-        ax_edit_other = plt.axes([0.505, button_y, 0.09, button_height])
-        ax_restart = plt.axes([0.605, button_y, 0.09, button_height])
-        ax_next = plt.axes([0.705, button_y, 0.09, button_height])
-        ax_accept = plt.axes([0.805, button_y, 0.09, button_height])
+        ax_bad_trial = plt.axes([0.055, button_y, 0.09, button_height])
+        ax_review = plt.axes([0.155, button_y, 0.09, button_height])
+        ax_edit_fix = plt.axes([0.255, button_y, 0.09, button_height])
+        ax_edit_pur = plt.axes([0.355, button_y, 0.09, button_height])
+        ax_edit_sac = plt.axes([0.455, button_y, 0.09, button_height])
+        ax_edit_other = plt.axes([0.555, button_y, 0.09, button_height])
+        ax_restart = plt.axes([0.655, button_y, 0.09, button_height])
+        ax_next = plt.axes([0.755, button_y, 0.09, button_height])
+        ax_accept = plt.axes([0.855, button_y, 0.09, button_height])
         
         # Create buttons with colors matching label types
         btn_fix = Button(ax_edit_fix, 'Edit\nFixation', color=label_colors['fixation'], hovercolor='lightgreen')
@@ -1062,6 +1077,12 @@ class GazeLabeler:
             btn_bad_trial = Button(ax_bad_trial, '✓ Bad Trial\n(exports 9)', color='lightcoral', hovercolor='red')
         else:
             btn_bad_trial = Button(ax_bad_trial, 'Mark as\nBad Trial', color='lightgray', hovercolor='gray')
+
+        # Review button appearance depends on current state
+        if self.marked_for_review:
+            btn_review = Button(ax_review, '✓ Marked\nfor Review', color='#FFE4B5', hovercolor='orange')
+        else:
+            btn_review = Button(ax_review, 'Mark for\nReview', color='lightgray', hovercolor='gray')
         
         # Connect button handlers
         btn_fix.on_clicked(on_edit_fixation)
@@ -1072,12 +1093,13 @@ class GazeLabeler:
         btn_next.on_clicked(on_next_trial)
         btn_accept.on_clicked(on_accept)
         btn_bad_trial.on_clicked(on_bad_trial_toggle)
+        btn_review.on_clicked(on_review_toggle)
         
         # Connect close event
         fig.canvas.mpl_connect('close_event', on_close)
         
         # Button references must be stored — matplotlib garbage collects unreferenced widgets.
-        self._summary_btn_refs = [btn_fix, btn_pur, btn_sac, btn_other, btn_restart, btn_next, btn_accept, btn_bad_trial]
+        self._summary_btn_refs = [btn_fix, btn_pur, btn_sac, btn_other, btn_restart, btn_next, btn_accept, btn_bad_trial, btn_review]
         
         plt.show()
         
