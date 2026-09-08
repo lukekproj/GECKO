@@ -685,6 +685,13 @@ class GazeLabeler:
             if event.inaxes != ax or event.xdata is None:
                 return
             
+            # Ignore clicks while the toolbar's zoom/pan tool is active,
+            # and ignore right-clicks entirely (only left-click labels).
+            if fig.canvas.toolbar is not None and fig.canvas.toolbar.mode != '':
+                return
+            if event.button != 1:
+                return
+            
             idx = int(round(event.xdata))
             # Clamp to valid frame range (allows clicking in padding to select edge frames)
             idx = max(0, min(total_frames - 1, idx))
@@ -963,7 +970,7 @@ class GazeLabeler:
         try:
             # Remove trial number prefix for cleaner display
             display_name = "_".join(self.trial_name.split("_")[1:])
-        except:
+        except Exception:
             display_name = self.trial_name
 
         ax.set_title(f"Summary — {display_name}", pad=15)
@@ -1082,7 +1089,7 @@ class GazeLabeler:
         Matplotlib dialog to choose label order using a clickable list + Up/Down.
         Returns: list[str] order, or None if user closes/cancels.
         """
-        labels = ['fixation', 'pursuit', 'saccade']
+        labels = ['saccade', 'pursuit', 'fixation']
 
         existing = getattr(self, "label_order", None)
         if not existing:

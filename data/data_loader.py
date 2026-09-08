@@ -34,7 +34,8 @@ from data.data_calculations import (
 )
 from utility.user_prefs import (
     DEFAULT_GAZE_LOWPASS_ORDER,
-    DEFAULT_GAZE_LOWPASS_CUTOFF_HZ
+    DEFAULT_GAZE_LOWPASS_CUTOFF_HZ,
+    AUTO_INTERP_THRESHOLD_FRAMES
 )
 from dataclasses import dataclass
 
@@ -339,7 +340,7 @@ class KinarmDataExplorer:
         """Wrapper so GUI can call explorer.calculate_fvr()."""
         return calculate_fvr(self)
 
-    def smart_interpolate_trial_data(self, channel_names, auto_threshold: int = 50, force_prompt: bool = False, trial_info=None):
+    def smart_interpolate_trial_data(self, channel_names, auto_threshold: int = AUTO_INTERP_THRESHOLD_FRAMES, force_prompt: bool = False, trial_info=None):
         """
         Wrapper so GUI can call explorer.smart_interpolate_trial_data().
         """

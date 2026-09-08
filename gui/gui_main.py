@@ -413,6 +413,16 @@ class KinarmDataExplorerGUI:
             return
 
         self.selected_file_var.set(f"Loaded File: {Path(filepath).name}")
+        # Save session state for the file being replaced, if one was loaded,
+        # so in-progress channel/trial selections aren't lost when switching files.
+        if self.explorer and self.current_trial:
+            self.session.save_state(
+                current_trial_name=self.current_trial.name,
+                trial_names=self.explorer.trial_names,
+                filepath=self.explorer.filepath,
+                channel_filter=self._channel_filter_var.get(),
+                inspect_selection=self._sticky_channel_selection,
+            )
             
         try:
             self._populating = True  # Prevent selection callbacks during loading
@@ -434,12 +444,49 @@ class KinarmDataExplorerGUI:
             self.trial_listbox.delete(0, tk.END)
             self.channel_listbox.delete(0, tk.END)
             self.export_listbox.delete(0, tk.END)
+            self.marker_listbox.delete(0, tk.END)
+            self._all_channels = []
+            self._all_export_channels = []
 
             self.trial_panel.load_trial_marks()
 
             # Populate trial list with numbered entries
             self.trial_panel.refresh_trial_list()
             self._update_button_states()
+
+            # Get available events from first trial's events
+            self.available_events = []
+            try:
+                # Get unique event labels from any trial that has events
+                event_labels_set = set()
+                for trial_name, trial in self.explorer.exam.trials.items():
+                    if trial_name != "common" and hasattr(trial, 'events'):
+                        for event in trial.events:
+                            if hasattr(event, 'label'):
+                                event_labels_set.add(event.label)
+    
+                current_events = sorted(list(event_labels_set))
+    
+                # Compare with previous file
+                if current_events != self.previous_events and self.previous_events:
+                    added = set(current_events) - set(self.previous_events)
+                    removed = set(self.previous_events) - set(current_events)
+    
+                    message = "The available export channels have changed.\n\n"
+                    if added:
+                        message += f"Added: {', '.join(sorted(added))}\n"
+                    if removed:
+                        message += f"Removed: {', '.join(sorted(removed))}\n"
+                    message += "\nPlease review your channel selection before labeling."
+    
+                    messagebox.showinfo("Export Channels Updated", message)
+                
+                # Update for next comparison
+                self.available_events = current_events
+                self.previous_events = current_events
+                print(f"Found {len(self.available_events)} event types: {self.available_events}")
+            except Exception as e:
+                print(f"Event load failed: {e}")
 
             state = self._load_session_state()
             if state:
@@ -474,40 +521,6 @@ class KinarmDataExplorerGUI:
             # Re-enable trial selection and clear loading flag
             self.trial_listbox.bind("<<ListboxSelect>>", self.select_trial)
             self._populating = False
-
-        # Get available events from first trial's events
-        self.available_events = []
-        try:
-            # Get unique event labels from any trial that has events
-            event_labels_set = set()
-            for trial_name, trial in self.explorer.exam.trials.items():
-                if trial_name != "common" and hasattr(trial, 'events'):
-                    for event in trial.events:
-                        if hasattr(event, 'label'):
-                            event_labels_set.add(event.label)
-
-            current_events = sorted(list(event_labels_set))
-
-            # Compare with previous file
-            if current_events != self.previous_events and self.previous_events:
-                added = set(current_events) - set(self.previous_events)
-                removed = set(self.previous_events) - set(current_events)
-
-                message = "The available export channels have changed.\n\n"
-                if added:
-                    message += f"Added: {', '.join(sorted(added))}\n"
-                if removed:
-                    message += f"Removed: {', '.join(sorted(removed))}\n"
-                message += "\nPlease review your channel selection before labeling."
-
-                messagebox.showinfo("Export Channels Updated", message)
-            
-            # Update for next comparison
-            self.available_events = current_events
-            self.previous_events = current_events
-            print(f"Found {len(self.available_events)} event types: {self.available_events}")
-        except Exception as e:
-            print(f"Event load failed: {e}")
 
     def select_trial(self, event=None):
         """

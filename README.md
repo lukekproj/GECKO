@@ -6,7 +6,74 @@
 
 GECKO is an open-source Python desktop application for visualizing, annotating, and exporting gaze and kinematic data from KINARM robotic exoskeleton experiments. It provides a researcher-in-the-loop workflow for classifying gaze events (fixations, saccades, and smooth pursuits) with frame-level precision, reducing manual analysis time per trial to seconds.
 
-Developed by the [Sensorimotor Neuroscience and Learning Laboratory](https://www.huck.psu.edu/laboratories/sensorimotor-neuroscience-and-learning-laboratory) at Pennsylvania State University.
+Developed by the [Sensorimotor Neuroscience and Learning Laboratory](https://sites.psu.edu/singhlab/) at Pennsylvania State University.
+
+---
+
+## Repository Structure
+
+```
+GECKO/
+│
+├── gui/                          # Main application (tkinter GUI)
+│   ├── gui_main.py                # Entry point — main window, file loading, session state
+│   ├── gui_labeler.py              # Labeler controller (launches GazeLabeler)
+│   ├── gui_channel_panel.py        # Channel list, filtering, inspection plots
+│   ├── gui_export_panel.py         # Export channel selection panel
+│   ├── gui_trial_panel.py          # Trial list, marks, notes
+│   ├── gui_session.py              # Session state persistence (resume, Trial_Notes.csv)
+│   ├── gui_metadata_viewer.py      # Task Protocol / metadata viewer
+│   ├── gui_help.py                 # In-app Help/Info window
+│   └── gui_utils.py                # Shared GUI helpers
+│
+├── label/                        # Gaze labeling & export pipeline
+│   ├── gaze_labeler_ui.py          # Interactive labeling interface (click-to-label, blitting)
+│   └── gaze_labeler_export.py      # Label → gaze_events → CSV/NPZ export
+│
+├── data/                         # Core data pipeline (GUI-independent)
+│   ├── exam_load.py                # .kinarm binary file parser
+│   ├── data_loader.py              # KinarmDataExplorer — trial/channel access, interpolation entrypoint
+│   ├── data_calculations.py        # GazeCalculator — spherical coords, angular velocity, FVR
+│   └── data_interpolation.py       # Sentinel cleaning, gap detection, linear/saccadic interpolation
+│
+├── utility/                      # Shared utilities
+│   ├── user_prefs.py               # Config constants, config.json loading, preferences
+│   └── kinarm_utils.py             # Trial parameter table helpers
+│
+├── tests/                        # pytest test suite
+│   ├── test_data_interpolation.py  # Sentinel cleaning, gap detection, buffer expansion
+│   ├── test_data_calculations.py   # Spherical coordinate / angular velocity / FVR math
+│   └── test_user_prefs.py          # config.json loading behavior
+│
+├── examples/                     # Demo dataset for new users and reviewers
+│   ├── demo_1.kinarm               # Sample KINARM file (includes intentional data gaps)
+│   └── README.md
+│
+├── docs/                         # User-facing documentation
+│   ├── GECKO_User_Manual.pdf
+│   └── GECKO_Technical_Reference.pdf
+│
+├── paper/                        # JOSS manuscript
+│   ├── paper.md
+│   ├── paper.bib
+│   └── kinarm_gaze_geometry.jpg
+│
+├── .github/workflows/            # CI
+│   ├── draft-pdf.yml               # Builds JOSS paper PDF preview
+│   ├── build-mac.yml               # Builds macOS executable
+│   └── tests.yml                   # Runs pytest suite on push/PR
+│
+├── config.json                   # Lab-configurable processing parameters
+├── requirements.txt                # Runtime dependencies
+├── requirements-dev.txt            # Dev dependencies (pytest)
+├── pytest.ini                      # pytest configuration
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── GECKO_mac.spec                  # PyInstaller spec (macOS build)
+├── .gitattributes                  # Ensures binary files (PDFs) aren't corrupted by line-ending conversion
+├── .gitignore
+└── LICENSE
+```
 
 ---
 
@@ -44,8 +111,8 @@ No installation or Python required.
 Requires Python 3.10+
 
 ```bash
-git clone https://github.com/lukekroon/GECKO.git
-cd GECKO/src
+git clone https://github.com/lukekproj/GECKO.git
+cd GECKO
 pip install -r requirements.txt
 python gui/gui_main.py
 ```
@@ -60,9 +127,11 @@ python gui/gui_main.py
 4. **Select Event Markers** — choose events to display as vertical lines during labeling (e.g. TARGET_ON)
 5. **Select Channels to Export** — choose which data channels appear in the output CSV
 6. **Label Events** — opens the gaze labeling interface; interpolation is offered automatically if large gaps are detected
-7. **Accept & Finish / Save & Next Trial** — exports CSV and NPZ for the trial
+7. **Save & Finish / Save & Next Trial** — exports CSV and NPZ for the trial
 
 Repeat steps 2–7 for each trial. All export and marker selections persist across trials.
+
+New to GECKO? Watch the [video walkthrough](https://psu.mediaspace.kaltura.com/media/t/1_04zjsojj) using the included demo dataset.
 
 ---
 
@@ -114,7 +183,6 @@ Python dependencies:
 numpy
 scipy
 matplotlib
-h5py
 PyQt5
 pandas
 ```
