@@ -386,14 +386,16 @@ def _choose_large_gap_strategy(
         plt.subplots_adjust(bottom=0.15, hspace=0.3)
 
     gap = large_gaps[0]
+    scale = 100.0 if _should_sanitize_channel(name) else 1.0
+    unit_label = "Distance (cm)" if scale == 100.0 else "Value"
     title_text = f"{name} - Gap {gap_index} of {gap_total}: frames {gap.start}-{gap.end} ({gap.length} frames)"
     if trial_info:
         title_text = f"{trial_info}  •  {title_text}"
     ax1.set_title(title_text, fontsize=12, fontweight="bold")
 
     # Original
-    ax1.plot(original, "b-", linewidth=1.5, label="Original (with gaps)")
-    ax1.set_ylabel("Value")
+    ax1.plot(original * scale, "b-", linewidth=1.5, label="Original (with gaps)")
+    ax1.set_ylabel(unit_label)
     ax1.grid(True, alpha=0.3)
     for g in large_gaps:
         ax1.axvspan(g.start, g.end, color="red", alpha=0.3)
@@ -404,9 +406,9 @@ def _choose_large_gap_strategy(
     linear_preview = base.copy()
     for g in large_gaps:
         linear_preview = _linear_interpolate_gap(linear_preview, g.indices)
-    ax2.plot(linear_preview, "g-", linewidth=1.5, label="Linear Interpolation")
+    ax2.plot(linear_preview * scale, "g-", linewidth=1.5, label="Linear Interpolation")
     ax2.set_title("Preview: Linear Interpolation", fontsize=12, fontweight="bold")
-    ax2.set_ylabel("Value")
+    ax2.set_ylabel(unit_label)
     ax2.grid(True, alpha=0.3)
     for g in large_gaps:
         ax2.axvspan(g.start, g.end, color="green", alpha=0.2)
@@ -417,10 +419,10 @@ def _choose_large_gap_strategy(
     sacc_preview = base.copy()
     for g in large_gaps:
         sacc_preview = saccadic_interpolate_gap(sacc_preview, g.indices)
-    ax3.plot(sacc_preview, "orange", linewidth=1.5, label="Saccadic Interpolation")
+    ax3.plot(sacc_preview * scale, "orange", linewidth=1.5, label="Saccadic Interpolation")
     ax3.set_title("Preview: Saccadic Interpolation (Fast Jump)", fontsize=12, fontweight="bold")
     ax3.set_xlabel("Frame")
-    ax3.set_ylabel("Value")
+    ax3.set_ylabel(unit_label)
     ax3.grid(True, alpha=0.3)
     for g in large_gaps:
         ax3.axvspan(g.start, g.end, color="orange", alpha=0.2)

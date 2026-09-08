@@ -238,9 +238,12 @@ class ChannelPanel:
             self.app._open_figures.append(fig)
 
             for plot_idx, (ch, processed) in enumerate(channel_data_dict.items()):
-                axs[plot_idx][0].plot(processed, label="Processed", color="blue")
+                scale = 100.0 if _should_sanitize_channel(ch) else 1.0
+                unit_label = "Distance (cm)" if scale == 100.0 else "Value (raw units)"
+
+                axs[plot_idx][0].plot(processed * scale, label="Processed", color="blue")
                 axs[plot_idx][0].set_title(f"{ch} (Plot)")
-                axs[plot_idx][0].set_ylabel("Value (raw units)")
+                axs[plot_idx][0].set_ylabel(unit_label)
                 axs[plot_idx][0].legend()
                 axs[plot_idx][0].grid(True)
                 if plot_idx == num_plots - 1:
