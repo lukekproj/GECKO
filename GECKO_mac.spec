@@ -33,14 +33,33 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-app = BUNDLE(
+exe = EXE(
+    pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    name='GECKO.app',
+    [],
+    exclude_binaries=True,
+    name='GECKO',
     debug=False,
+    bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     console=False,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='GECKO',
+)
+
+app = BUNDLE(
+    coll,
+    name='GECKO.app',
+    icon=None,
+    bundle_identifier=None,
 )
