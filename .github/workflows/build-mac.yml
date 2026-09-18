@@ -26,10 +26,10 @@ jobs:
       - name: Zip .app
         run: |
           cd dist
-          zip -r GECKO_v1.5.1_mac.zip GECKO.app
+          zip -r GECKO.zip GECKO.app
 
-      - name: Upload to release
-        uses: softprops/action-gh-release@v2
+      - name: Upload build
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v1.5.1
-          files: dist/GECKO_v1.5.1_mac.zip
+          name: GECKO-mac
+          path: dist/GECKO.zip
