@@ -5,7 +5,12 @@ on:
 
 jobs:
   build-mac:
-    runs-on: macos-13
+    strategy:
+      matrix:
+        os: [macos-15, macos-15-intel]
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,13 +28,21 @@ jobs:
         run: |
           pyinstaller GECKO_mac.spec
 
+      - name: Determine Architecture Suffix
+        id: arch
+        run: |
+          if [[ "${{ matrix.os }}" == *"intel"* ]]; then
+            echo "suffix=Intel-x64" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=AppleSilicon-arm64" >> $GITHUB_OUTPUT
+          fi
+
       - name: Zip .app
         run: |
           cd dist
-          zip -r GECKO.zip GECKO.app
+          zip -r GECKO-${{ steps.arch.outputs.suffix }}.zip GECKO.app
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: GECKO-mac
-          path: dist/GECKO.zip
+          name:
