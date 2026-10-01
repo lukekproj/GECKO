@@ -160,8 +160,39 @@ class GazeLabelerController:
                     return
 
             while trial is not None:
+                trial_index = None
+                for idx, name in enumerate(app.explorer.trial_names):
+                    if name == trial.name:
+                        trial_index = idx + 1
+                        break
+
+                # Check if trial is already marked bad — offer to skip labeling
+                if trial.name in app._trial_marks:
+                    mark_data = app._trial_marks[trial.name]
+                    if isinstance(mark_data, dict) and mark_data.get("mark") == "bad":
+                        skip = messagebox.askyesno(
+                            "Bad Trial Detected",
+                            f"This trial is marked as Bad.\n\n"
+                            "Export with all frames as Gaze_Events = 9?\n"
+                            "(Skips interpolation and labeling)\n\n"
+                            "Yes = Export as bad, move to next trial\n"
+                            "No = Open labeler normally"
+                        )
+                        if skip:
+                            from label.gaze_labeler_export import export_bad_trial
+                            export_bad_trial(
+                                app.explorer,
+                                trial.name,
+                                kinarm_path=app.explorer.filepath,
+                                output_root=app.custom_save_location,
+                                trial_index=trial_index,
+                            )
+                            messagebox.showinfo("Exported", "Bad trial exported with all frames as Gaze_Events = 9.")
+                            return
+
                 # Resolve export selections first so they're available for upfront interpolation
                 ui_selections = [app.export_listbox.get(i) for i in app.export_listbox.curselection()]
+
                 if not ui_selections and app._sticky_export_selection:
                     all_selections = list(app._sticky_export_selection)
                 else:
@@ -191,12 +222,6 @@ class GazeLabelerController:
                 # Only include channels selected for overlay display, not export-only channels
                 overlay_channels = {k: v for k, v in interpolated_data.items()
                                     if k in labeler_channels and k not in ("Gaze_X", "Gaze_Y")}
-
-                trial_index = None
-                for idx, name in enumerate(app.explorer.trial_names):
-                    if name == trial.name:
-                        trial_index = idx + 1
-                        break
 
                 tp_num = find_trial_tp_number(trial)
                 tp_text = f"TP #{tp_num}" if tp_num is not None else "TP #(unknown)"
