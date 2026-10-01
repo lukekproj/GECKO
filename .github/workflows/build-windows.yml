@@ -25,11 +25,12 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            VERSION="GECKO_${GITHUB_REF#refs/tags/}"
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="GECKO_${TAG}_Windows"
           elif [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="GECKO_${{ github.event.inputs.version }}"
+            VERSION="GECKO_${{ github.event.inputs.version }}_Windows"
           else
-            VERSION="GECKO_dev"
+            VERSION="GECKO_dev_Windows"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
