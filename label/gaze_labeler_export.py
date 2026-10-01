@@ -463,6 +463,45 @@ def write_tp_and_target_tables(out_dir: Path, exam: ExamLoad) -> None:
     if not tp_df.empty:
         tp_df.to_csv(out_dir / "TP_Table.csv", index=False)
 
+
+def export_bad_trial(explorer, trial_name, kinarm_path, output_root=None, trial_index=None):
+    """
+    Export a trial marked as bad with all frames set to Gaze_Events = 9.
+    Skips interpolation and labeling entirely.
+    """
+    from utility.kinarm_utils import find_trial_tp_number
+    import pandas as pd
+
+    trial = explorer.exam.trials[trial_name]
+    N = trial.frame_count
+
+    frames = np.arange(N)
+    gaze_events = np.full(N, 9, dtype=int)
+
+    kinarm_name = Path(kinarm_path).name
+    if output_root:
+        save_dir = Path(output_root) / kinarm_name
+    else:
+        desktop = Path.home() / "Desktop"
+        save_dir = (desktop if desktop.exists() else Path.home()) / "gaze_labels" / kinarm_name
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    tp_num = find_trial_tp_number(trial)
+    tp_str = f"TP{tp_num}" if tp_num is not None else "TP_NA"
+    count = trial_index if trial_index else 1
+    filename = f"Trial{count}.{tp_str}.C1"
+
+    df = pd.DataFrame({"Frame": frames, "Gaze_Events": gaze_events})
+    df.to_csv(save_dir / f"{filename}.csv", index=False)
+
+    npz_dir = save_dir / "npz"
+    npz_dir.mkdir(exist_ok=True)
+    np.savez_compressed(npz_dir / f"{filename}.npz", Frame=frames, Gaze_Events=gaze_events)
+
+    print(f"  → Exported bad trial: {filename} (all frames = 9)")       
+
+
 def run_labeling_process(
     explorer,
     trial_name: str,
