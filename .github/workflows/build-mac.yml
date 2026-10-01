@@ -2,10 +2,20 @@ name: Build macOS App
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name (e.g. v1.5.5). Leave blank to default to "dev".'
+        required: false
+        default: ''
 
 jobs:
   build-mac:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        os: [macos-15, macos-15-intel]
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,13 +33,27 @@ jobs:
         run: |
           pyinstaller GECKO_mac.spec
 
+      - name: Determine filename
+        id: name
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VER="${{ github.event.inputs.version }}"
+          else
+            VER="dev"
+          fi
+          if [[ "${{ matrix.os }}" == *"intel"* ]]; then
+            echo "filename=GECKO_${VER}_macOS-Intel" >> $GITHUB_OUTPUT
+          else
+            echo "filename=GECKO_${VER}_macOS-AppleSilicon" >> $GITHUB_OUTPUT
+          fi
+
       - name: Zip .app
         run: |
           cd dist
-          zip -r GECKO_v1.5.1_mac.zip GECKO.app
+          zip -r ${{ steps.name.outputs.filename }}.zip GECKO.app
 
-      - name: Upload to release
-        uses: softprops/action-gh-release@v2
+      - name: Upload build
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v1.5.1
-          files: dist/GECKO_v1.5.1_mac.zip
+          name: ${{ steps.name.outputs.filename }}
+          path: dist/${{ steps.name.outputs.filename }}.zip

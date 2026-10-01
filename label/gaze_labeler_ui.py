@@ -883,6 +883,28 @@ class GazeLabeler:
              # Button references must be stored — matplotlib garbage collects unreferenced widgets.
             self._btn_refs = [btn_undo, btn_mark_all, btn_erase, btn_clear, btn_finish, btn_skip, btn_quit]
 
+        ax_yrange = plt.axes([0.02, 0.85, 0.08, 0.05])
+        btn_yrange = Button(ax_yrange, 'Y Range', color='lightyellow', hovercolor='yellow')
+
+        def on_yrange(event):
+            import tkinter as _tk
+            from tkinter import simpledialog
+            _r = _tk.Tk()
+            _r.withdraw()
+            _r.attributes("-topmost", True)
+            val = simpledialog.askstring("Set Y Range", "Enter min,max (e.g. -40,40):", parent=_r)
+            _r.destroy()
+            if val:
+                try:
+                    ymin, ymax = [float(v.strip()) for v in val.split(",")]
+                    ax.set_ylim(ymin, ymax)
+                    fig.canvas.draw_idle()
+                except Exception:
+                    pass
+
+        btn_yrange.on_clicked(on_yrange)
+        self._btn_refs.append(btn_yrange)
+
         # Initial draw and show
         redraw()
 
@@ -1100,6 +1122,28 @@ class GazeLabeler:
         
         # Button references must be stored — matplotlib garbage collects unreferenced widgets.
         self._summary_btn_refs = [btn_fix, btn_pur, btn_sac, btn_other, btn_restart, btn_next, btn_accept, btn_bad_trial, btn_review]
+        
+        ax_yrange = plt.axes([0.02, 0.85, 0.08, 0.05])
+        btn_yrange = Button(ax_yrange, 'Y Range', color='lightyellow', hovercolor='yellow')
+
+        def on_yrange(event):
+            import tkinter as _tk
+            from tkinter import simpledialog
+            _r = _tk.Tk()
+            _r.withdraw()
+            _r.attributes("-topmost", True)
+            val = simpledialog.askstring("Set Y Range", "Enter min,max (e.g. -40,40):", parent=_r)
+            _r.destroy()
+            if val:
+                try:
+                    ymin, ymax = [float(v.strip()) for v in val.split(",")]
+                    ax.set_ylim(ymin, ymax)
+                    fig.canvas.draw_idle()
+                except Exception:
+                    pass
+
+        btn_yrange.on_clicked(on_yrange)
+        self._summary_btn_refs.append(btn_yrange)
         
         plt.show()
         
