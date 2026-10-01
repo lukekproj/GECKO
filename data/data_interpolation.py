@@ -458,6 +458,15 @@ def _choose_large_gap_strategy(
             plt.close(fig)
 
     def on_nan(event):
+        if name in ("Gaze_X", "Gaze_Y"):
+            import tkinter as _tk
+            from tkinter import messagebox as _mb
+            _r = _tk.Tk()
+            _r.withdraw()
+            _r.attributes("-topmost", True)
+            _mb.showwarning("Warning",
+                f"Leaving NaN gaps in {name} will cause FVR and other gaze metric calculations to produce NaN in those regions.", parent=_r)
+            _r.destroy()
         user_decision["action"] = "nan"
         if reusing_fig:
             fig.canvas.stop_event_loop()
