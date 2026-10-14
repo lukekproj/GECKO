@@ -50,6 +50,7 @@ matplotlib.use(MPL_BACKEND)
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button, RadioButtons
 import numpy as np
+import gc
 
 # Linestyle cycle for overlay channels in labeler plots.
 _OVERLAY_STYLES = ['--', '-.', ':', '--', '-.', ':']
@@ -912,6 +913,11 @@ class GazeLabeler:
         fig.canvas.draw()
 
         plt.show()
+        self._btn_refs = []
+        fig.clf()
+        plt.close(fig)
+        del fig, ax
+        gc.collect()
 
     def _create_summary_plot(self, label_colors):
         """
@@ -1146,6 +1152,12 @@ class GazeLabeler:
         self._summary_btn_refs.append(btn_yrange)
         
         plt.show()
+
+        self._summary_btn_refs = []
+        fig.clf()
+        plt.close(fig)
+        del fig, ax
+        gc.collect()
         
         return choice["method"]
     
@@ -1291,6 +1303,12 @@ class GazeLabeler:
 
         redraw_list()
         plt.show()
+
+        self._order_btn_refs = []
+        fig.clf()
+        plt.close(fig)
+        del fig
+        gc.collect()
 
         if chosen["cancel"]:
             return None

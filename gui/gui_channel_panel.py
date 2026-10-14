@@ -1,6 +1,7 @@
 """
 Channel Panel - Channel inspection, filtering, and plotting.
 """
+import gc
 
 import tkinter as tk
 from tkinter import messagebox
@@ -150,10 +151,12 @@ class ChannelPanel:
         try:
             for fig in self.app._open_figures[:]:
                 try:
+                    fig.clf()
                     plt.close(fig)
                 except Exception:
                     pass
             self.app._open_figures.clear()
+            gc.collect()
 
             selected_channels = [
                 self.app.channel_listbox.get(i).split(". ", 1)[1] for i in selections
@@ -253,4 +256,7 @@ class ChannelPanel:
             plt.show(block=False)
 
         except Exception as e:
+            plt.close('all')
+            self.app._open_figures.clear()
+            gc.collect()
             messagebox.showerror("Error", str(e))

@@ -433,6 +433,10 @@ class KinarmDataExplorerGUI:
             except Exception:
                 pass
 
+            if hasattr(self, 'explorer') and self.explorer is not None:
+                self.explorer.interpolation_cache.clear()
+                self.explorer._derived_cache.clear()
+
             # Initialize data explorer with new file
             self.explorer = KinarmDataExplorer(filepath)
             self.current_trial = None

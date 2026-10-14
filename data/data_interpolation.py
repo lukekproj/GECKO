@@ -13,15 +13,16 @@ Key features:
 
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 import numpy as np
 from scipy.ndimage import label, binary_dilation
 
-from utility.user_prefs import KINARM_INVALID_ABS_THRESHOLD, GAZE_TIMESTAMP_CHANNEL
 from utility.user_prefs import (
     KINARM_INVALID_ABS_THRESHOLD,
+    GAZE_TIMESTAMP_CHANNEL,
     SACCADIC_TRANSITION_FRACTION, 
     SACCADIC_SIGMOID_STEEPNESS,
     DEFAULT_TIMESTAMP_SPACING_S,
@@ -624,7 +625,10 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
                 )
                 if action is None:
                     try:
+                        gap_fig.clf()
                         plt.close(gap_fig)
+                        del gap_fig
+                        gc.collect()
                     except Exception:
                         pass
                     return None
@@ -635,7 +639,10 @@ def smart_interpolate_trial_data(explorer, channel_names, auto_threshold: int = 
                 # else "nan": leave gap as-is
 
             try:
+                gap_fig.clf()
                 plt.close(gap_fig)
+                del gap_fig
+                gc.collect()
             except Exception:
                 pass
 

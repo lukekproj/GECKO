@@ -24,6 +24,8 @@ for the currently selected trial in KinarmDataExplorer.
 
 from __future__ import annotations
 
+import gc
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
@@ -297,8 +299,15 @@ def calculate_gaze_metrics(explorer) -> None:
 
         plt.tight_layout()
         plt.show(block=False)
+        fig = plt.gcf()
+        fig.clf()
+        plt.close(fig)
+        del fig
+        gc.collect()
 
     except Exception as e:
+        plt.close('all')
+        gc.collect()
         print(f"Error computing gaze metrics: {e}")
 
 
@@ -341,8 +350,15 @@ def calculate_angular_velocity(explorer) -> None:
         plt.legend()
         plt.tight_layout()
         plt.show(block=False)
+        fig = plt.gcf()
+        fig.clf()
+        plt.close(fig)
+        del fig
+        gc.collect()
 
     except Exception as e:
+        plt.close('all')
+        gc.collect()
         print(f"Error computing angular velocity: {e}")
 
 def calculate_fvr(explorer) -> None:
@@ -382,6 +398,13 @@ def calculate_fvr(explorer) -> None:
         plt.legend()
         plt.tight_layout()
         plt.show(block=False)
+        fig = plt.gcf()
+        fig.clf()
+        plt.close(fig)
+        del fig
+        gc.collect()
 
     except Exception as e:
+        plt.close('all')
+        gc.collect()
         print(f"Error computing FVR: {e}")

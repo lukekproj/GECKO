@@ -25,6 +25,8 @@ from utility.user_prefs import (
     MAX_LABELER_CHANNELS,
 )
 from utility.kinarm_utils import find_trial_tp_number
+import gc
+import matplotlib.pyplot as plt
 
 
 class GazeLabelerController:
@@ -160,6 +162,7 @@ class GazeLabelerController:
                     return
 
             while trial is not None:
+                plt.close('all')
                 trial_index = None
                 for idx, name in enumerate(app.explorer.trial_names):
                     if name == trial.name:
@@ -301,4 +304,6 @@ class GazeLabelerController:
                     return
 
         except Exception as e:
+            plt.close('all')
+            gc.collect()
             messagebox.showerror("Error", str(e))
