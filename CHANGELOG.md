@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.5.5 - 2026-10-14
+### Enhancements
+- Added "Y Range" button to labeling and summary plots, allowing users to set a custom Y-axis range for trials where extreme outlier values make labeling difficult (closes #34)
+- Added "Mark for Review" button to the labeling summary window for flagging trials that need a second look (closes #27)
+- Trials marked as "Bad" on the main trial list can now be exported directly with all frames as Gaze_Events = 9, skipping interpolation and labeling entirely (closes #24)
+- Standardized gaze display units to cm across interpolation preview and channel inspection plots (closes #29)
+- Displayed loaded .kinarm filename on the main screen for easier file identification (closes #32)
+### Bug Fixes
+- Added warning when leaving NaN gaps in Gaze_X or Gaze_Y, since downstream gaze metric calculations will produce NaN in those regions (closes #31)
+- Fixed memory leak where matplotlib figures were not fully released after plotting, causing significant memory growth during extended sessions
+- Interpolation and derived channel caches are now cleared when loading a new file, preventing unbounded memory growth across file switches
+### CI/Build
+- Draft PDF workflow now only triggers on changes to the `paper/` directory instead of every push
+- macOS build configuration updates
+
 ## v1.5.4 - 2026-08-21
 ### Configuration
 - Removed remaining hardcoded values across the gaze/interpolation pipeline (sentinel threshold, lowpass filter cutoff, auto-interpolation threshold) so config.json is now consistently respected everywhere
