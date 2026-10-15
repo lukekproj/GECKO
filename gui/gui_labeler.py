@@ -259,7 +259,7 @@ class GazeLabelerController:
                     marker_events=selected_markers,
                     label_order=label_order,
                 )
-
+                
                 if labeler is not None and getattr(labeler, "bad_trial", False):
                     app.trial_panel.mark_trial("bad")
                 if labeler is not None and getattr(labeler, "marked_for_review", False):

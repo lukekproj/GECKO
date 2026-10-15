@@ -281,7 +281,8 @@ def calculate_gaze_metrics(explorer) -> None:
 
         rho, theta, phi = explorer.gaze_calculator.compute_spherical_coords(gx, gy)
 
-        plt.figure(figsize=(12, 6))
+        fig = plt.figure("Gaze Metrics", figsize=(12, 6))
+        fig.clf()
         plt.subplot(3, 1, 1)
         plt.plot(rho, label="rho (m)")
         plt.legend()
@@ -299,11 +300,6 @@ def calculate_gaze_metrics(explorer) -> None:
 
         plt.tight_layout()
         plt.show(block=False)
-        fig = plt.gcf()
-        fig.clf()
-        plt.close(fig)
-        del fig
-        gc.collect()
 
     except Exception as e:
         plt.close('all')
@@ -341,7 +337,8 @@ def calculate_angular_velocity(explorer) -> None:
             gx, gy, rho, phi, frame_rate_hz=frame_rate
         )
 
-        plt.figure(figsize=(12, 6))
+        fig = plt.figure("Angular Velocity", figsize=(12, 6))
+        fig.clf()
         plt.plot(v_deg_s, label="Angular Velocity (deg/s)")
         plt.title("Angular Velocity")
         plt.xlabel("Frame")
@@ -350,11 +347,6 @@ def calculate_angular_velocity(explorer) -> None:
         plt.legend()
         plt.tight_layout()
         plt.show(block=False)
-        fig = plt.gcf()
-        fig.clf()
-        plt.close(fig)
-        del fig
-        gc.collect()
 
     except Exception as e:
         plt.close('all')
@@ -389,7 +381,8 @@ def calculate_fvr(explorer) -> None:
         epsilon_rad = explorer.gaze_calculator.compute_epsilon_from_gaze_direction(gx, gy)
         fvr_m = explorer.gaze_calculator.compute_fvr(rho, epsilon_rad)
 
-        plt.figure(figsize=(12, 6))
+        fig = plt.figure("Foveal Visual Radius", figsize=(12, 6))
+        fig.clf()
         plt.plot(fvr_m, label="FVR (m)")
         plt.title("Foveal Visual Radius (FVR)")
         plt.xlabel("Frame")
@@ -398,11 +391,6 @@ def calculate_fvr(explorer) -> None:
         plt.legend()
         plt.tight_layout()
         plt.show(block=False)
-        fig = plt.gcf()
-        fig.clf()
-        plt.close(fig)
-        del fig
-        gc.collect()
 
     except Exception as e:
         plt.close('all')
