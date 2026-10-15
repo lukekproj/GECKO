@@ -40,3 +40,9 @@ a = Analysis(
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
+    hooksconfig={"matplotlib": {"backends": ["Qt5Agg", "QtAgg", "TkAgg", "Agg"]}},
+    runtime_hooks=[],
+    excludes=['pytest', 'IPython', 'jupyter', 'notebook'],
+    noarchive=False,
+    optimize=0,
+)
