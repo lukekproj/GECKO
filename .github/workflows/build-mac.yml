@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pyinstaller==6.16.0
+          pip install pyinstaller
 
       - name: Build .app
         run: |
