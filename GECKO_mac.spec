@@ -1,5 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all
 
 datas = [('data', 'data'), ('gui', 'gui'), ('label', 'label'), ('utility', 'utility')]
 binaries = []
@@ -14,10 +13,6 @@ hiddenimports = [
     'PyQt5', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets',
 ]
 
-for pkg in ['numpy', 'pandas', 'scipy', 'matplotlib', 'PyQt5']:
-    tmp_ret = collect_all(pkg)
-    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
 a = Analysis(
     ['gui/gui_main.py'],
     pathex=[],
@@ -25,9 +20,9 @@ a = Analysis(
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
-    hooksconfig={},
+    hooksconfig={"matplotlib": {"backends": ["Qt5Agg", "QtAgg", "TkAgg", "Agg"]}},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['pytest', 'IPython', 'jupyter', 'notebook'],
     noarchive=False,
     optimize=0,
 )
