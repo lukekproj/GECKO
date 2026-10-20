@@ -11,9 +11,12 @@
 - Added warning when leaving NaN gaps in Gaze_X or Gaze_Y, since downstream gaze metric calculations will produce NaN in those regions (closes #31)
 - Fixed memory leak where matplotlib figures were not fully released after plotting, causing significant memory growth during extended sessions
 - Interpolation and derived channel caches are now cleared when loading a new file, preventing unbounded memory growth across file switches
+- Fixed Gaze Metrics, Angular Velocity, and FVR plot windows closing immediately after opening
+- Fixed memory growth and slowdown in the Windows build during long labeling sessions. The build was pulling in matplotlib 3.11.2, which kept closed labeler windows in memory (closes #39)
 ### CI/Build
 - Draft PDF workflow now only triggers on changes to the `paper/` directory instead of every push
 - macOS build configuration updates
+- Pinned all dependency versions in requirements.txt and pinned PyInstaller in the Windows build so release builds match the tested environment
 
 ## v1.5.4 - 2026-08-21
 ### Configuration
